@@ -43,8 +43,26 @@ module SonosPartyMode
       )
     end
 
-    def self.spotify_user
-      RSpotify::User.new(Db.spotify_tokens.where(user_id: session[:user_id]).first.fetch(:options))
+    def self.spotify_user(user_id)
+      return nil if spotify_user_row(user_id).nil?
+      RSpotify::User.new(JSON.parse(spotify_user_row(user_id).fetch(:options)))
+    end
+
+    def self.spotify_user_row(user_id)
+      query = Db.spotify_tokens.where(user_id: user_id)
+      return nil if query.empty?
+      return query.first
+    end
+
+    def self.party_playlist(user_id)
+      # Find or create the Party playlist
+      playlist_id = spotify_user_row(user_id).fetch(:playlist_id)
+      if !playlist_id
+        playlist_id = spotify_user(user_id).create_playlist!("🎉 SonosPartyMode 🍾").id
+        Db.spotify_tokens.where(user_id: user_id).update(playlist_id: playlist_id)
+      end
+      playlist = RSpotify::Playlist.find(spotify_user(user_id).id, playlist_id)
+      return playlist
     end
 
     def self.permission_scope

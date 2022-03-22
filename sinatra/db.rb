@@ -34,6 +34,7 @@ module SonosPartyMode
           primary_key :id
           foreign_key :user_id, :users
           String :options
+          String :playlist_id
         end
       end
       return shared_database[:spotify_tokens]

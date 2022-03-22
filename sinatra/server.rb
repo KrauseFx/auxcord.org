@@ -6,7 +6,8 @@ require_relative "./spotify"
 require_relative "./db"
 
 enable :sessions
-# set :session_store, Rack::Session::Pool
+
+# General
 
 get "/" do
   session[:user_id] = 7 # TODO: remove
@@ -20,11 +21,26 @@ get "/" do
                     "state=TESTSTATE&" + 
                     "scope=playback-control-all&" + 
                     "redirect_uri=#{ERB::Util.url_encode(redirect_uri)}"
-  else
-    # TODO: Generate Spotify URL here
+    return erb :login
+  elsif SonosPartyMode::Spotify.spotify_user(session[:user_id]).nil?
     @spotify_login_url = "/auth/spotify"
+    return erb :login
+  else
+    # Success
+    redirect :manager
   end
-  erb :login
+end
+
+get "/manager" do
+  redirect "/" unless all_sessions?
+  SonosPartyMode::Spotify.party_playlist(session[:user_id])
+
+  erb :manager
+end
+
+def all_sessions?
+  SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count > 0 &&
+    !SonosPartyMode::Spotify.spotify_user(session[:user_id]).nil?
 end
 
 # -----------------------
@@ -76,7 +92,7 @@ get '/auth/spotify' do
             client_id: ENV['SPOTIFY_CLIENT_ID'],
             response_type: 'code',
             redirect_uri: SPOTIFY_REDIRECT_URI,
-            scope: SonosPartyMode.permission_scope,
+            scope: SonosPartyMode::Spotify.permission_scope,
             state: session[:state_key]
           ))
 end
