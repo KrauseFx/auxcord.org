@@ -43,8 +43,19 @@ module SonosPartyMode
       )
     end
 
-    def spotify_user
+    def self.spotify_user
       RSpotify::User.new(Db.spotify_tokens.where(user_id: session[:user_id]).first.fetch(:options))
+    end
+
+    def self.permission_scope
+      return %w(
+        playlist-read-private
+        user-read-private
+        user-read-email
+        playlist-modify-public
+        user-library-read
+        user-library-modify
+      ).join(' ')
     end
   end
 end

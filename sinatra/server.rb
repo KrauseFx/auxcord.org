@@ -71,21 +71,12 @@ end
 get '/auth/spotify' do
   session[:state_key] = SecureRandom.hex
 
-  scope = %w(
-    playlist-read-private
-    user-read-private
-    user-read-email
-    playlist-modify-public
-    user-library-read
-    user-library-modify
-  ).join(' ')
-
   redirect("https://accounts.spotify.com/authorize?" + 
           URI.encode_www_form(
             client_id: ENV['SPOTIFY_CLIENT_ID'],
             response_type: 'code',
             redirect_uri: SPOTIFY_REDIRECT_URI,
-            scope: scope,
+            scope: SonosPartyMode.permission_scope,
             state: session[:state_key]
           ))
 end
