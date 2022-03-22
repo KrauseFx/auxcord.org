@@ -3,7 +3,6 @@ source "https://rubygems.org"
 gem "sinatra"
 gem "puma"
 
-gem "omniauth"
 gem "rspotify"
 gem "excon"
 gem "sequel"

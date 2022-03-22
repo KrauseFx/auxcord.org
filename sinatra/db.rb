@@ -27,5 +27,16 @@ module SonosPartyMode
       end
       return shared_database[:sonos_tokens]
     end
+
+    def self.spotify_tokens
+      if !shared_database.table_exists?(:spotify_tokens)
+        shared_database.create_table :spotify_tokens do
+          primary_key :id
+          foreign_key :user_id, :users
+          String :options
+        end
+      end
+      return shared_database[:spotify_tokens]
+    end
   end
 end

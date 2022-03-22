@@ -73,7 +73,6 @@ PLATFORMS
 
 DEPENDENCIES
   excon
-  omniauth
   pg
   pry
   puma

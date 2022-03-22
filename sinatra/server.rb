@@ -1,6 +1,8 @@
 require "sinatra"
-require "pry"
+require "pry" # TODO: remove
+require "rspotify"
 require_relative "./sonos"
+require_relative "./spotify"
 require_relative "./db"
 
 enable :sessions
@@ -10,7 +12,7 @@ get "/" do
   session[:user_id] = 7 # TODO: remove
   # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
 
-  if Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
+  if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
     redirect_uri = "http://localhost:4567/sonos/authorized.html"
     @sonos_login_url = "https://api.sonos.com/login/v3/oauth?" +
                     "client_id=#{ENV.fetch('SONOS_KEY')}&" + 
@@ -20,10 +22,14 @@ get "/" do
                     "redirect_uri=#{ERB::Util.url_encode(redirect_uri)}"
   else
     # TODO: Generate Spotify URL here
-    binding.pry
+    @spotify_login_url = "/auth/spotify"
   end
   erb :login
 end
+
+# -----------------------
+# Sonos Specific Code
+# -----------------------
 
 get "/sonos/authorized.html" do
   # So, this user is serious, they onboarded Sonos, so we now create an entry for them
@@ -40,9 +46,46 @@ get "/sonos/authorized.html" do
     user_id: user_id
   )
 
-  redirect_to :root
+  redirect "/"
 end
 
-get "spotify/authorized.html" do
+# -----------------------
+# Spotify Specific Code
+# -----------------------
 
+SPOTIFY_REDIRECT_PATH = '/auth/spotify/callback'
+SPOTIFY_REDIRECT_URI = "http://localhost:4567#{SPOTIFY_REDIRECT_PATH}"
+
+get SPOTIFY_REDIRECT_PATH do
+  if params[:state] == Hash(session)["state_key"]
+    session[:state_key] = nil
+
+    SonosPartyMode::Spotify.new(
+      authorization_code: params[:code],
+      user_id: session[:user_id]
+    )
+  end
+  redirect "/"
+end
+
+get '/auth/spotify' do
+  session[:state_key] = SecureRandom.hex
+
+  scope = %w(
+    playlist-read-private
+    user-read-private
+    user-read-email
+    playlist-modify-public
+    user-library-read
+    user-library-modify
+  ).join(' ')
+
+  redirect("https://accounts.spotify.com/authorize?" + 
+          URI.encode_www_form(
+            client_id: ENV['SPOTIFY_CLIENT_ID'],
+            response_type: 'code',
+            redirect_uri: SPOTIFY_REDIRECT_URI,
+            scope: scope,
+            state: session[:state_key]
+          ))
 end
