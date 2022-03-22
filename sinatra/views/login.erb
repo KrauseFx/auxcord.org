@@ -2,7 +2,14 @@
 
 <h3>Connect Sonos</h3>
 
-<a href="<%= @sonos_login_url %>">Connect Sonos</a>
+<% if @sonos_login_url %>
+  <a href="<%= @sonos_login_url %>">Connect Sonos</a>
+<% else %>
+  <h3>☑️ Sonos successfully connected</h3>
+<% end %>
 
 <h3>Connect Spotify</h3>
 
+<% if @spotify_login_url %>
+  <a href="<%= @spotify_login_url %>">Connect Spotify</a>
+<% end %>
