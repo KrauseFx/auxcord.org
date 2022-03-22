@@ -8,9 +8,9 @@ require_relative "./db"
 enable :sessions
 
 # General
+RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
 
 get "/" do
-  session[:user_id] = 7 # TODO: remove
   # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
 
   if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
@@ -32,15 +32,46 @@ get "/" do
 end
 
 get "/manager" do
-  redirect "/" unless all_sessions?
-  SonosPartyMode::Spotify.party_playlist(session[:user_id])
+  unless all_sessions?
+    redirect "/"
+    return
+  end
+
+  # playlist = SonosPartyMode::Spotify.party_playlist(session[:user_id])
+
+  # tracks = RSpotify::Track.search('Know')
+  # playlist.add_tracks!(tracks)
 
   erb :manager
 end
 
+get "/party" do
+  unless all_sessions?
+    redirect "/"
+    return
+  end
+
+  sonos = sonos_instances[session[:user_id]]
+  playlist = sonos.ensure_playlist_in_favorites
+  sonos.ensure_music_playing!(playlist)
+  sonos.ensure_volume!(10)
+
+  erb :party
+end
+
 def all_sessions?
-  SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count > 0 &&
-    !SonosPartyMode::Spotify.spotify_user(session[:user_id]).nil?
+  session[:user_id] = 7 # TODO: remove
+
+  return false unless (
+    SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count > 0 &&
+    !SonosPartyMode::Spotify.spotify_user(session[:user_id]).nil?)
+
+  sonos_instances[session[:user_id]] ||= SonosPartyMode::Sonos.new(user_id: session[:user_id])
+  return true
+end
+
+def sonos_instances
+  @sonos_instances ||= {}
 end
 
 # -----------------------
@@ -57,9 +88,9 @@ get "/sonos/authorized.html" do
 
   # Now process the Sonos login
   authorization_code = params.fetch(:code)
-  SonosPartyMode::Sonos.new(
+  sonos_instances[user_id] = SonosPartyMode::Sonos.new(user_id: user_id)
+  sonos_instances[user_id].new_auth(
     authorization_code: authorization_code,
-    user_id: user_id
   )
 
   redirect "/"
