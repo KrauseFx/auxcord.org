@@ -66,14 +66,10 @@ module SonosPartyMode
         # TODO: this part is also called if it's our session
         return false
       end
-
-      binding.pry
     
       if playback_session["sessionState"] == "SESSION_STATE_CONNECTED"
         self.session_id = playback_session["sessionId"]
 
-        binding.pry
-        # TODO: don't do the below again if it's already complete
         # Start playing the Party Playlist
         play_fav = client_control_request(
           "/groups/#{group_to_use}/favorites", 

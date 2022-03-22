@@ -11,6 +11,7 @@ enable :sessions
 RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
 
 get "/" do
+  # session[:user_id] = 7 # TODO: remove
   # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
 
   if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
@@ -37,11 +38,6 @@ get "/manager" do
     return
   end
 
-  # playlist = SonosPartyMode::Spotify.party_playlist(session[:user_id])
-
-  # tracks = RSpotify::Track.search('Know')
-  # playlist.add_tracks!(tracks)
-
   erb :manager
 end
 
@@ -56,11 +52,28 @@ get "/party" do
   sonos.ensure_music_playing!(playlist)
   sonos.ensure_volume!(10)
 
+  @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + SonosPartyMode::Spotify.party_playlist(session[:user_id]).id
+
   erb :party
 end
 
+get "/party/join/:user_id/:playlist_id" do
+  # No auth here, we just verify the 2 IDs
+  spotify_playlist = SonosPartyMode::Spotify.party_playlist(params[:user_id])
+  if spotify_playlist.id != params[:playlist_id]
+    redirect "/"
+    return
+  end
+
+  tracks = RSpotify::Track.search('Eminem')
+  spotify_playlist.add_tracks!(tracks)
+  render :party_index
+
+  spotify_playlist
+end
+
 def all_sessions?
-  session[:user_id] = 7 # TODO: remove
+  # session[:user_id] = 7 # TODO: remove
 
   return false unless (
     SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count > 0 &&
