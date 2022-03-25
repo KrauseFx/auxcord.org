@@ -134,6 +134,25 @@ module SonosPartyMode
       }
     end
 
+    def refresh_token
+      puts "Refreshing API token..."
+      refresh_token = database_row.fetch(:refresh_token)
+      response = client_login.post(
+        headers: {
+          "Content-Type" => "application/x-www-form-urlencoded",
+          "Accept-Charset" => "UTF-8",
+          "Authorization" => "Basic #{Base64.strict_encode64(ENV.fetch('SONOS_KEY') + ":" + ENV.fetch('SONOS_SECRET'))}"
+        },
+        body: URI.encode_www_form({
+          grant_type: "refresh_token",
+          refresh_token: refresh_token,
+        })
+      )
+      parsed_body = JSON.parse(response.body)
+      access_token = parsed_body.fetch("access_token")
+      Db.sonos_tokens.where(user_id: user_id).update(access_token: access_token) # important to use full query
+    end
+
     def client_control_request(path, method: :get, body: nil)
       response = client_control.request(
         method: method,
@@ -141,7 +160,19 @@ module SonosPartyMode
         headers: default_headers,
         body: Hash(body).to_json
       )
-      return JSON.parse(response.body)
+      parsed_body = JSON.parse(response.body)
+      # Check if Sonos API token has expired
+      # "=> {"fault"=>{"faultstring"=>"Access Token expired", "detail"=>{"errorcode"=>"keymanagement.service.access_token_expired"}}}"
+      if parsed_body["fault"].to_s.length > 0
+        if ["keymanagement.service.invalid_access_token", "keymanagement.service.access_token_expired"].include?(parsed_body["fault"]["detail"]["errorcode"])
+          self.refresh_token
+          client_control_request(path, method: method, body: body)
+        else
+          raise parsed_body["fault"]["faultstring"]
+        end
+      end
+
+      return parsed_body
     end
   end
 end
