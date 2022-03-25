@@ -58,7 +58,7 @@ module SonosPartyMode
       # Find or create the Party playlist
       playlist_id = spotify_user_row(user_id).fetch(:playlist_id)
       if !playlist_id
-        playlist_id = spotify_user(user_id).create_playlist!("🎉 SonosPartyMode 🍾").id
+        playlist_id = spotify_user(user_id).create_playlist!("🎉 #{user_id} SonosPartyMode 🍾").id
         Db.spotify_tokens.where(user_id: user_id).update(playlist_id: playlist_id)
       end
       playlist = RSpotify::Playlist.find(spotify_user(user_id).id, playlist_id)

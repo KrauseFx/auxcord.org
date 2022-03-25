@@ -71,11 +71,21 @@ module SonosPartyMode
         self.session_id = playback_session["sessionId"]
 
         # Start playing the Party Playlist
+        tracks = RSpotify::Track.search('SIA')    
+        spotify_playlist.add_tracks!(tracks)
         play_fav = client_control_request(
           "/groups/#{group_to_use}/favorites", 
           method: :post, 
           body: { favoriteId: playlist["id"] }
+          body: {
+            favoriteId: playlist["id"],
+            action: "INSERT_NEXT",      
+            # playModes: "crossfade"
+          }
         )
+
+        # REPLACE = instantly replaces, therefore useless
+        # INSERT_NEXT = what we need
 
         # Now trigger playback
         client_control_request("groups/#{group_to_use}/playback/play", method: :post)
