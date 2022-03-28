@@ -12,7 +12,7 @@ module SonosPartyMode
       @user_id = user_id
     end
       
-    def new_auth(authorization_code:)
+    def new_auth!(authorization_code:)
       # Very important: the redirect_uri has to match exactly
       response = client_login.post(
         headers: {
@@ -40,14 +40,14 @@ module SonosPartyMode
       )
     end
 
-    def ensure_playlist_in_favorites
-      spotify_playlist_id = SonosPartyMode::Spotify.party_playlist(user_id).id
+    def ensure_playlist_in_favorites(spotify_playlist_id)
       favs = client_control_request("/households/#{primary_household}/favorites")
       matched = favs.fetch("items").find do |fav|
         fav["service"]["name"] == "Spotify" &&
           fav["resource"]["type"] == "PLAYLIST" &&
           fav["resource"]["id"]["objectId"].include?(spotify_playlist_id)
       end
+      binding.pry if matched.nil?
 
       return matched
     end
@@ -69,20 +69,20 @@ module SonosPartyMode
     
       if playback_session["sessionState"] == "SESSION_STATE_CONNECTED"
         self.session_id = playback_session["sessionId"]
+  
+        # tracks = RSpotify::Track.search('SIA')    
+        # spotify_playlist.add_tracks!(tracks)
 
-        # Start playing the Party Playlist
-        tracks = RSpotify::Track.search('SIA')    
-        spotify_playlist.add_tracks!(tracks)
-        play_fav = client_control_request(
-          "/groups/#{group_to_use}/favorites", 
-          method: :post, 
-          body: { favoriteId: playlist["id"] }
-          body: {
-            favoriteId: playlist["id"],
-            action: "INSERT_NEXT",      
-            # playModes: "crossfade"
-          }
-        )
+
+        # play_fav = client_control_request(
+        #   "/groups/#{group_to_use}/favorites", 
+        #   method: :post, 
+        #   body: {
+        #     favoriteId: playlist["id"],
+        #     action: "INSERT_NEXT",      
+        #     # playModes: "crossfade"
+        #   }
+        # )
 
         # REPLACE = instantly replaces, therefore useless
         # INSERT_NEXT = what we need
@@ -120,7 +120,7 @@ module SonosPartyMode
       client_control_request("/households/#{primary_household}/groups").fetch("groups")
     end
 
-    private
+    # private
     def access_token
       database_row.fetch(:access_token)
     end

@@ -6,7 +6,13 @@ require_relative "./db"
 
 module SonosPartyMode
   class Spotify
-    def initialize(authorization_code:, user_id:)
+    attr_accessor :user_id
+
+    def initialize(user_id:)
+      self.user_id = user_id
+    end
+
+    def new_auth!(authorization_code:)
       auth_string = Base64.strict_encode64(ENV['SPOTIFY_CLIENT_ID'] + ':' + ENV['SPOTIFY_CLIENT_SECRET'])
       auth_response = Excon.post(
         'https://accounts.spotify.com/api/token',
@@ -43,29 +49,29 @@ module SonosPartyMode
       )
     end
 
-    def self.spotify_user(user_id)
-      return nil if spotify_user_row(user_id).nil?
-      RSpotify::User.new(JSON.parse(spotify_user_row(user_id).fetch(:options)))
+    def spotify_user
+      return nil if spotify_user_row.nil?
+      RSpotify::User.new(JSON.parse(spotify_user_row.fetch(:options)))
     end
 
-    def self.spotify_user_row(user_id)
+    def spotify_user_row
       query = Db.spotify_tokens.where(user_id: user_id)
       return nil if query.empty?
       return query.first
     end
 
-    def self.party_playlist(user_id)
+    def party_playlist
       # Find or create the Party playlist
-      playlist_id = spotify_user_row(user_id).fetch(:playlist_id)
+      playlist_id = spotify_user_row.fetch(:playlist_id)
       if !playlist_id
-        playlist_id = spotify_user(user_id).create_playlist!("🎉 #{user_id} SonosPartyMode 🍾").id
-        Db.spotify_tokens.where(user_id: user_id).update(playlist_id: playlist_id)
+        playlist_id = spotify_user.create_playlist!("🎉 #{user_id} SonosPartyMode 🍾").id
+        Db.spotify_tokens.where(user_id: user_id).update(playlist_id: playlist_id) # use full query syntax
       end
-      playlist = RSpotify::Playlist.find(spotify_user(user_id).id, playlist_id)
+      playlist = RSpotify::Playlist.find(spotify_user.id, playlist_id)
       return playlist
     end
 
-    def self.permission_scope
+    def permission_scope
       return %w(
         playlist-read-private
         user-read-private

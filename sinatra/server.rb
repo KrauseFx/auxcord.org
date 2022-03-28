@@ -1,142 +1,203 @@
-require "sinatra"
+require "sinatra/base"
 require "pry" # TODO: remove
 require "rspotify"
 require_relative "./sonos"
 require_relative "./spotify"
 require_relative "./db"
 
-enable :sessions
+module SonosPartyMode
+  class Server < Sinatra::Base
+    enable :sessions
 
-# General
-RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
+    def initialize
+      super
 
-get "/" do
-  # session[:user_id] = 7 # TODO: remove
-  # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
+      # General
+      RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
 
-  if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
-    redirect_uri = "http://localhost:4567/sonos/authorized.html"
-    @sonos_login_url = "https://api.sonos.com/login/v3/oauth?" +
-                    "client_id=#{ENV.fetch('SONOS_KEY')}&" + 
-                    "response_type=code&" + 
-                    "state=TESTSTATE&" + 
-                    "scope=playback-control-all&" + 
-                    "redirect_uri=#{ERB::Util.url_encode(redirect_uri)}"
-    return erb :login
-  elsif SonosPartyMode::Spotify.spotify_user(session[:user_id]).nil?
-    @spotify_login_url = "/auth/spotify"
-    return erb :login
-  else
-    # Success
-    redirect :manager
+      # Boot up code: load exisitng sessions into the `session` instances
+      SonosPartyMode::Db.users.each do |user|
+        sonos_instances[user[:id]] ||= SonosPartyMode::Sonos.new(user_id: user[:id])
+        spotify_instances[user[:id]] ||= SonosPartyMode::Spotify.new(user_id: user[:id])
+      end
+    end
+
+    get "/" do
+      session[:user_id] = 10 # TODO: remove
+      # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
+
+      if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
+        redirect_uri = "http://localhost:4567/sonos/authorized.html"
+        @sonos_login_url = "https://api.sonos.com/login/v3/oauth?" +
+                        "client_id=#{ENV.fetch('SONOS_KEY')}&" + 
+                        "response_type=code&" + 
+                        "state=TESTSTATE&" + 
+                        "scope=playback-control-all&" + 
+                        "redirect_uri=#{ERB::Util.url_encode(redirect_uri)}"
+        return erb :login
+      elsif spotify_instances[session[:user_id]].nil?
+        @spotify_login_url = "/auth/spotify"
+        return erb :login
+      else
+        # Success
+        redirect :manager
+      end
+    end
+
+    get "/manager" do
+      unless all_sessions?
+        redirect "/"
+        return
+      end
+
+      erb :manager
+    end
+
+    get "/party" do
+      unless all_sessions?
+        redirect "/"
+        return
+      end
+
+      spotify_playlist_id = spotify_instances[session[:user_id]].party_playlist.id
+
+      sonos = sonos_instances[session[:user_id]]
+      playlist = sonos.ensure_playlist_in_favorites(spotify_playlist_id)
+      sonos.ensure_music_playing!(playlist)
+      sonos.ensure_volume!(5)
+
+      @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
+
+      erb :party
+    end
+
+    get "/party/join/:user_id/:playlist_id" do
+      # No auth here, we just verify the 2 IDs
+      spotify_playlist = spotify_instances[params[:user_id].to_i].party_playlist
+      if spotify_playlist.id != params[:playlist_id]
+        redirect "/"
+        return
+      end
+
+      erb :party_index
+    end
+
+    post "/party/join/:user_id/:playlist_id" do
+      user_id = params[:user_id].to_i
+      spotify_playlist = spotify_instances[user_id].party_playlist
+      sonos = sonos_instances[user_id]
+
+      # To make sure the user actually has the full link, and the IDs match
+      if spotify_playlist.id != params[:playlist_id]
+        redirect "/"
+        return
+      end
+
+      # TODO: replace below, once we search for a specific ID
+
+
+      # Step 1: Search Spotify for that specific song based on the ID that's passed in
+      tracks = RSpotify::Track.search(params[:song])
+
+      # Step 2: Add the resulting song(s) onto the favorite playlist, ready to be queueue
+      spotify_playlist.add_tracks!(tracks)
+      
+      # Step 3: Get the Sonos ID of the favorite playlist
+      fav_id = sonos.ensure_playlist_in_favorites(spotify_playlist.id)
+
+      # Step 4: Queue all songs from that playlist into the Sonos Queue
+      binding.pry
+      play_fav = sonos.client_control_request(
+        "/groups/#{sonos.group_to_use}/favorites", 
+        method: :post, 
+        body: {
+          favoriteId: fav_id.fetch("id"),
+          action: "INSERT_NEXT",      
+          # playModes: "crossfade"
+        }
+      )
+
+      # Step 5: Remove all songs we just added to the queue, from the Sonos playlist
+      binding.pry
+      spotify_playlist.remove_tracks!(spotify_playlist.tracks)
+      puts play_fav
+
+      # Step 6: Render success message to the (guest) end-user
+    end
+
+    def all_sessions?
+      session[:user_id] = 10 # TODO: remove
+
+      return sonos_instances[session[:user_id]] && spotify_instances[session[:user_id]]
+    end
+
+    # -----------------------
+    # Sonos Specific Code
+    # -----------------------
+
+    get "/sonos/authorized.html" do
+      # So, this user is serious, they onboarded Sonos, so we now create an entry for them
+      # First, create a new user
+      user_id = SonosPartyMode::Db.users.insert
+
+      # Then store this inside the session
+      session[:user_id] = user_id
+
+      # Now process the Sonos login
+      authorization_code = params.fetch(:code)
+      new_sonos = SonosPartyMode::Sonos.new(user_id: user_id)
+      new_sonos.new_auth!(
+        authorization_code: authorization_code,
+      )
+      sonos_instances[user_id] = new_sonos
+
+      redirect "/"
+    end
+
+    # -----------------------
+    # Spotify Specific Code
+    # -----------------------
+
+    SPOTIFY_REDIRECT_PATH = '/auth/spotify/callback'
+    SPOTIFY_REDIRECT_URI = "http://localhost:4567#{SPOTIFY_REDIRECT_PATH}"
+
+    get SPOTIFY_REDIRECT_PATH do
+      if params[:state] == Hash(session)["state_key"]
+        session[:state_key] = nil
+
+        new_spotify = SonosPartyMode::Spotify.new(user_id: session[:user_id])
+        new_spotify.new_auth!(authorization_code: authorization_code)
+        spotify_instances[session[:user_id]] = new_spotify
+      end
+      redirect "/"
+    end
+
+    get '/auth/spotify' do
+      session[:state_key] = SecureRandom.hex
+
+      redirect("https://accounts.spotify.com/authorize?" + 
+              URI.encode_www_form(
+                client_id: ENV['SPOTIFY_CLIENT_ID'],
+                response_type: 'code',
+                redirect_uri: SPOTIFY_REDIRECT_URI,
+                scope: SonosPartyMode::Spotify.permission_scope,
+                state: session[:state_key]
+              ))
+    end
+
+    # Caching state
+    def sonos_instances
+      @sonos_instances ||= {}
+    end
+
+    def spotify_instances
+      @spotify_instances ||= {}
+    end
+
+    run!
   end
 end
 
-get "/manager" do
-  unless all_sessions?
-    redirect "/"
-    return
-  end
-
-  erb :manager
-end
-
-get "/party" do
-  unless all_sessions?
-    redirect "/"
-    return
-  end
-
-  sonos = sonos_instances[session[:user_id]]
-  playlist = sonos.ensure_playlist_in_favorites
-  sonos.ensure_music_playing!(playlist)
-  sonos.ensure_volume!(10)
-
-  @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + SonosPartyMode::Spotify.party_playlist(session[:user_id]).id
-
-  erb :party
-end
-
-get "/party/join/:user_id/:playlist_id" do
-  # No auth here, we just verify the 2 IDs
-  spotify_playlist = SonosPartyMode::Spotify.party_playlist(params[:user_id])
-  if spotify_playlist.id != params[:playlist_id]
-    redirect "/"
-    return
-  end
-
-  tracks = RSpotify::Track.search('Eminem')
-  spotify_playlist.add_tracks!(tracks)
-  render :party_index
-
-  spotify_playlist
-end
-
-def all_sessions?
-  # session[:user_id] = 7 # TODO: remove
-
-  return false unless (
-    SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count > 0 &&
-    !SonosPartyMode::Spotify.spotify_user(session[:user_id]).nil?)
-
-  sonos_instances[session[:user_id]] ||= SonosPartyMode::Sonos.new(user_id: session[:user_id])
-  return true
-end
-
-def sonos_instances
-  @sonos_instances ||= {}
-end
-
-# -----------------------
-# Sonos Specific Code
-# -----------------------
-
-get "/sonos/authorized.html" do
-  # So, this user is serious, they onboarded Sonos, so we now create an entry for them
-  # First, create a new user
-  user_id = SonosPartyMode::Db.users.insert
-
-  # Then store this inside the session
-  session[:user_id] = user_id
-
-  # Now process the Sonos login
-  authorization_code = params.fetch(:code)
-  sonos_instances[user_id] = SonosPartyMode::Sonos.new(user_id: user_id)
-  sonos_instances[user_id].new_auth(
-    authorization_code: authorization_code,
-  )
-
-  redirect "/"
-end
-
-# -----------------------
-# Spotify Specific Code
-# -----------------------
-
-SPOTIFY_REDIRECT_PATH = '/auth/spotify/callback'
-SPOTIFY_REDIRECT_URI = "http://localhost:4567#{SPOTIFY_REDIRECT_PATH}"
-
-get SPOTIFY_REDIRECT_PATH do
-  if params[:state] == Hash(session)["state_key"]
-    session[:state_key] = nil
-
-    SonosPartyMode::Spotify.new(
-      authorization_code: params[:code],
-      user_id: session[:user_id]
-    )
-  end
-  redirect "/"
-end
-
-get '/auth/spotify' do
-  session[:state_key] = SecureRandom.hex
-
-  redirect("https://accounts.spotify.com/authorize?" + 
-          URI.encode_www_form(
-            client_id: ENV['SPOTIFY_CLIENT_ID'],
-            response_type: 'code',
-            redirect_uri: SPOTIFY_REDIRECT_URI,
-            scope: SonosPartyMode::Spotify.permission_scope,
-            state: session[:state_key]
-          ))
+if __FILE__ == $0
+  SonosPartyMode::Server
 end
