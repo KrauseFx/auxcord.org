@@ -15,10 +15,24 @@ module SonosPartyMode
       # General
       RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
 
-      # Boot up code: load exisitng sessions into the `session` instances
+      # Boot up code: load existing sessions into the `session` instances
       SonosPartyMode::Db.users.each do |user|
         sonos_instances[user[:id]] ||= SonosPartyMode::Sonos.new(user_id: user[:id])
         spotify_instances[user[:id]] ||= SonosPartyMode::Spotify.new(user_id: user[:id])
+      end
+
+      # Ongoing background thread to monitor all Sonos systems
+      Thread.new do
+        loop do
+          self.ensure_current_sonos_settings!
+          sleep(2)
+        end
+      end
+    end
+
+    def ensure_current_sonos_settings!
+      sonos_instances.each do |user_id, sonos|
+        sonos.ensure_current_sonos_settings!
       end
     end
 
@@ -63,8 +77,8 @@ module SonosPartyMode
 
       sonos = sonos_instances[session[:user_id]]
       playlist = sonos.ensure_playlist_in_favorites(spotify_playlist_id)
-      sonos.ensure_music_playing!(playlist)
-      sonos.ensure_volume!(5)
+      sonos.start_or_join_playback_session!(playlist) # TODO: should this be here
+      sonos.party_session_active = true
 
       @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
 

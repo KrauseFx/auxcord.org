@@ -5,11 +5,18 @@ require_relative "./db"
 
 module SonosPartyMode
   class Sonos
+    # Basic attributes
     attr_accessor :user_id
     attr_accessor :session_id
+    attr_accessor :party_session_active
+
+    # Session specific settings
+    attr_accessor :target_volume
 
     def initialize(user_id:)
       @user_id = user_id
+      @target_volume = 40 # TODO: load from db
+      @party_session_active = false
     end
       
     def new_auth!(authorization_code:)
@@ -52,7 +59,14 @@ module SonosPartyMode
       return matched
     end
 
-    def ensure_music_playing!(playlist)
+    def ensure_current_sonos_settings!
+      return unless self.party_session_active
+
+      self.ensure_volume!(self.target_volume)
+      # TODO: add more here
+    end
+
+    def start_or_join_playback_session!(playlist)
       playback_session = client_control_request(
         "groups/#{group_to_use}/playbackSession/joinOrCreate",
         method: :post,
@@ -70,29 +84,20 @@ module SonosPartyMode
       if playback_session["sessionState"] == "SESSION_STATE_CONNECTED"
         self.session_id = playback_session["sessionId"]
   
-        # tracks = RSpotify::Track.search('SIA')    
-        # spotify_playlist.add_tracks!(tracks)
-
-
-        # play_fav = client_control_request(
-        #   "/groups/#{group_to_use}/favorites", 
-        #   method: :post, 
-        #   body: {
-        #     favoriteId: playlist["id"],
-        #     action: "INSERT_NEXT",      
-        #     # playModes: "crossfade"
-        #   }
-        # )
-
-        # REPLACE = instantly replaces, therefore useless
-        # INSERT_NEXT = what we need
-
         # Now trigger playback
-        client_control_request("groups/#{group_to_use}/playback/play", method: :post)
+        # TODO: do we need this?
+        # client_control_request("groups/#{group_to_use}/playback/play", method: :post)
       end
     end
 
+    def get_volume
+      # {"volume"=>40, "muted"=>false, "fixed"=>false}
+      client_control_request("groups/#{group_to_use}/groupVolume")
+    end
+
     def ensure_volume!(goal_volume)
+      return if get_volume.fetch("volume") == goal_volume
+
       client_control_request(
         "groups/#{group_to_use}/groupVolume",
         method: :post,
