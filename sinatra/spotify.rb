@@ -8,8 +8,12 @@ module SonosPartyMode
   class Spotify
     attr_accessor :user_id
 
+    # To prevent the same song from being queued again
+    # attr_accessor :previously_queued_songs
+
     def initialize(user_id:)
       self.user_id = user_id
+      # self.previously_queued_songs = []
     end
 
     def new_auth!(authorization_code:)
@@ -61,14 +65,24 @@ module SonosPartyMode
     end
 
     def party_playlist
+      return @_playlist if @_playlist
+
       # Find or create the Party playlist
       playlist_id = spotify_user_row.fetch(:playlist_id)
       if !playlist_id
-        playlist_id = spotify_user.create_playlist!("🎉 #{user_id} SonosPartyMode 🍾").id
+        playlist_id = spotify_user.create_playlist!("SonosPartyMode - Don't Delete").id
         Db.spotify_tokens.where(user_id: user_id).update(playlist_id: playlist_id) # use full query syntax
       end
-      playlist = RSpotify::Playlist.find(spotify_user.id, playlist_id)
-      return playlist
+      return (@_playlist = RSpotify::Playlist.find(spotify_user.id, playlist_id))
+    end
+
+    def add_song_to_party_playlist(song)
+      # Verify we haven't queued this song before
+      # return if previously_queued_songs.include?(song.id)
+
+      party_playlist.add_tracks!([song])
+      yield
+      party_playlist.remove_tracks!([song])
     end
 
     def permission_scope

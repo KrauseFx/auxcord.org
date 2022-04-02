@@ -19,6 +19,11 @@ module SonosPartyMode
       SonosPartyMode::Db.users.each do |user|
         sonos_instances[user[:id]] ||= SonosPartyMode::Sonos.new(user_id: user[:id])
         spotify_instances[user[:id]] ||= SonosPartyMode::Spotify.new(user_id: user[:id])
+
+        # Clear all Sonos Spotify Party playlists for now (# TODO: We might want to change this)
+        puts "Clearing previous songs from Party Playlists for user with id #{user[:id]}"
+        party_playlist = spotify_instances[user[:id]].party_playlist
+        party_playlist.remove_tracks!(party_playlist.tracks) if party_playlist
       end
 
       # Ongoing background thread to monitor all Sonos systems
@@ -111,32 +116,31 @@ module SonosPartyMode
 
 
       # Step 1: Search Spotify for that specific song based on the ID that's passed in
-      tracks = RSpotify::Track.search(params[:song])
+      song = RSpotify::Track.search(params[:song]).to_a.first
 
-      # Step 2: Add the resulting song(s) onto the favorite playlist, ready to be queueue
-      spotify_playlist.add_tracks!(tracks)
-      
-      # Step 3: Get the Sonos ID of the favorite playlist
-      fav_id = sonos.ensure_playlist_in_favorites(spotify_playlist.id)
+      # Step 2: Add the resulting song onto the favorite playlist, ready to be queueue
+      spotify_instances[user_id].add_song_to_party_playlist(song) do
+        # Step 3: Get the Sonos ID of the favorite playlist
+        fav_id = sonos.ensure_playlist_in_favorites(spotify_playlist.id)
 
-      # Step 4: Queue all songs from that playlist into the Sonos Queue
-      binding.pry
-      play_fav = sonos.client_control_request(
-        "/groups/#{sonos.group_to_use}/favorites", 
-        method: :post, 
-        body: {
-          favoriteId: fav_id.fetch("id"),
-          action: "INSERT_NEXT",      
-          # playModes: "crossfade"
-        }
-      )
-
-      # Step 5: Remove all songs we just added to the queue, from the Sonos playlist
-      binding.pry
-      spotify_playlist.remove_tracks!(spotify_playlist.tracks)
-      puts play_fav
+        # Step 4: Queue all songs from that playlist into the Sonos Queue
+        play_fav = sonos.client_control_request(
+          "/groups/#{sonos.group_to_use}/favorites", 
+          method: :post, 
+          body: {
+            favoriteId: fav_id.fetch("id"),
+            action: "INSERT_NEXT"
+          }
+        )
+        # Step 5: Remove all songs we just added to the queue, from the Sonos playlist
+        # This is done by the block inside `spotify.rb`
+      end
 
       # Step 6: Render success message to the (guest) end-user
+      # TODO: maybe also verify response status here
+      # binding.pry
+
+      erb :party_index
     end
 
     def all_sessions?

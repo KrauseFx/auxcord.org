@@ -15,7 +15,7 @@ module SonosPartyMode
 
     def initialize(user_id:)
       @user_id = user_id
-      @target_volume = 40 # TODO: load from db
+      @target_volume = 5 # TODO: load from db
       @party_session_active = false
     end
       
@@ -60,7 +60,7 @@ module SonosPartyMode
     end
 
     def ensure_current_sonos_settings!
-      return unless self.party_session_active
+      # return unless self.party_session_active
 
       self.ensure_volume!(self.target_volume)
       # TODO: add more here
