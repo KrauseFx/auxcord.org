@@ -82,7 +82,6 @@ module SonosPartyMode
 
       sonos = sonos_instances[session[:user_id]]
       playlist = sonos.ensure_playlist_in_favorites(spotify_playlist_id)
-      sonos.start_or_join_playback_session!(playlist) # TODO: should this be here
       sonos.party_session_active = true
 
       @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id

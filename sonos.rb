@@ -63,31 +63,24 @@ module SonosPartyMode
       # return unless self.party_session_active
 
       self.ensure_volume!(self.target_volume)
+      self.ensure_music_playing!
       # TODO: add more here
     end
 
-    def start_or_join_playback_session!(playlist)
-      playback_session = client_control_request(
-        "groups/#{group_to_use}/playbackSession/joinOrCreate",
-        method: :post,
-        body: { 
-          appId: "com.krausefx.partyMode",
-          appContext: "appidandappcontext"
-         }
-      )
-      if playback_session["errorCode"] == "ERROR_SESSION_IN_PROGRESS"
-        # The API doesn't seem to allow us to remotely kill a session that wasn't started by us
-        # TODO: this part is also called if it's our session
-        return false
-      end
-    
-      if playback_session["sessionState"] == "SESSION_STATE_CONNECTED"
-        self.session_id = playback_session["sessionId"]
+    def playback_status
+      status = client_control_request("/groups/#{group_to_use}/playback")
+      return status.fetch("playbackState")
+    end
+
+    def playback_is_playing?
+      ["PLAYBACK_STATE_PLAYING", "PLAYBACK_STATE_BUFFERING"].include?(playback_status)
+    end
+
+    def ensure_music_playing!
+      return if playback_is_playing?
   
-        # Now trigger playback
-        # TODO: do we need this?
-        # client_control_request("groups/#{group_to_use}/playback/play", method: :post)
-      end
+      puts "Resuming playback for Sonos system"
+      client_control_request("groups/#{group_to_use}/playback/play", method: :post)
     end
 
     def get_volume
