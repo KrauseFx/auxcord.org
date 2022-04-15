@@ -1,5 +1,10 @@
 <h1>Jukebox for Sonos</h1>
 
+<div id="loading-div">
+  Adding song to Jukebox...
+  <p class="footnote">This might take a few seconds</p>
+</div>
+
 <form method="POST">
   <input type="text" name="song" value="sia" placeholder="Enter Song Name" id="song-input"> 
   <ul id="song-list"></ul>
@@ -31,9 +36,12 @@
   const processChange = debounce(() => refreshAutocomplete());
 
   function queueSong(songId) {
+    document.getElementById("loading-div").style.display = "block";
     var xhr = new XMLHttpRequest();
     xhr.open('POST', window.location.pathname + "/" + songId, true);
     xhr.onload = function() {
+      document.getElementById("loading-div").style.display = "none"
+
       if (xhr.status === 200) {
         var response = JSON.parse(xhr.responseText);
         if (response.success) {
@@ -61,6 +69,20 @@
 </script>
 
 <style type="text/css">
+  #loading-div {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.93);
+    z-index: 100;
+    font-size: 50px;
+    text-align: center;
+    padding-top: 30px;
+    color: white;
+    display: none;
+  }
   #song-input {
     width: 100%;
     height: 50px;
@@ -97,5 +119,9 @@
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  }
+  .footnote {
+    font-size: 18px;
+    color: #AAA;
   }
 </style>
