@@ -97,7 +97,7 @@ module SonosPartyMode
         return
       end
 
-      erb :party_index
+      erb :queue_song
     end
 
     post "/party/join/:user_id/:playlist_id/:song_id" do
