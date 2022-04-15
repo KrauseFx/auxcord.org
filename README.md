@@ -33,3 +33,19 @@ There are many additional features we could build (like pre-queuing songs before
 
 1. A Sonos sound system
 1. A Spotify account
+
+## Development
+
+### Dependencies
+
+```
+bundle install
+```
+
+Developed with Ruby 3.0.2
+
+### Running the server
+
+```
+bundle exec ruby server.rb
+```
