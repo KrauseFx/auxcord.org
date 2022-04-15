@@ -2,7 +2,14 @@
 
 <h4>Generated URL</h4>
 <p><a href="<%= @party_join_link %>"><%= @party_join_link %></a></p>
-<%# TODO: Add QR Code %>
+<%= @qr_code.as_svg(
+  color: "000",
+  shape_rendering: "crispEdges",
+  module_size: 4,
+  standalone: true,
+  use_path: true,
+)
+%>
 
 <h4>Manage Party</h4>
 

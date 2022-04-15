@@ -1,6 +1,7 @@
 require "sinatra/base"
 require "pry" # TODO: remove
 require "rspotify"
+require "rqrcode"
 require_relative "./sonos"
 require_relative "./spotify"
 require_relative "./db"
@@ -87,6 +88,9 @@ module SonosPartyMode
       @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
       @volume = sonos.database_row.fetch(:volume)
       @party_on = sonos.party_session_active      
+
+      # Generate a QR code for the invite URL
+      @qr_code = RQRCode::QRCode.new(@party_join_link)
 
       erb :party
     end

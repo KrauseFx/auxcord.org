@@ -7,6 +7,7 @@ gem "rspotify"
 gem "excon"
 gem "sequel"
 gem "pg"
+gem "rqrcode", "~> 2.0"
 
 group :development do
   gem "pry"
