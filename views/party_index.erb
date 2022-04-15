@@ -1,6 +1,83 @@
 <h1>Jukebox for Sonos</h1>
 
 <form method="POST">
-<input type="text" name="song" value="sia"> 
-<input type="submit">
+  <input type="text" name="song" value="sia" placeholder="Enter Song Name" id="song-input"> 
+  <ul id="song-list"></ul>
 </form>
+
+<script type="text/javascript">
+  function refreshAutocomplete() {
+    console.log("Sending auto-complete request")
+    let ids = window.location.pathname.replace("/party/join/", "")
+    var song = document.getElementById('song-input').value;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/spotify/search/' + ids + '?song_name=' + song, true);
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        var response = JSON.parse(xhr.responseText);
+        var html = '';
+        for (var i = 0; i < response.length; i++) {
+          html += '<li class="autocomplete-entry">'
+          html += '<img src="' + response[i].thumbnail + '" class="autocomplete-image" />'
+          html += '<span class="autocomplete-label">' + response[i].name + '</span>'
+          html += '</li>';
+        }
+        document.getElementById('song-list').innerHTML = html;
+      }
+    };
+    xhr.send();
+  }
+  refreshAutocomplete(); // TODO: remove
+  const processChange = debounce(() => refreshAutocomplete());
+
+  function debounce(func, timeout = 500){
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { func.apply(this, args); }, timeout);
+    };
+  }
+
+  // On every key stroke, send a request to the server
+  document.getElementById('song-input').addEventListener('keyup', processChange);
+</script>
+
+<style type="text/css">
+  #song-input {
+    width: 100%;
+    height: 50px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 5px; 
+    font-size: 30px;
+  }
+  #song-list {
+    list-style: none;
+    padding: 20px;
+    margin: 30px;
+    background-color: #fff;
+    z-index: 1;
+  }
+  #song-list > .autocomplete-entry {
+    padding: 10px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+  }
+  .autocomplete-label {
+    font-size: 22px;
+    position: relative;
+    top: -15px;
+  }
+  .autocomplete-entry:hover {
+    background-color: #eee;
+  }
+  .autocomplete-image {
+    width: 50px;
+    height: 50px;
+    border-radius: 5px;
+    margin-right: 10px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  }
+</style>

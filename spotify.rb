@@ -76,6 +76,11 @@ module SonosPartyMode
       return (@_playlist = RSpotify::Playlist.find(spotify_user.id, playlist_id))
     end
 
+    def search_for_song(name)
+      # TODO: also search for album and artist
+      return RSpotify::Track.search(name)
+    end
+
     def add_song_to_party_playlist(song)
       # Verify we haven't queued this song before
       # return if previously_queued_songs.include?(song.id)

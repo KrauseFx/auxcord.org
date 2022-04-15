@@ -203,6 +203,30 @@ module SonosPartyMode
               ))
     end
 
+    get '/spotify/search/:user_id/:playlist_id' do
+      content_type :json
+
+      song_name = params.fetch(:song_name)
+      user_id = params[:user_id].to_i
+      spotify_playlist = spotify_instances[user_id].party_playlist
+
+      # To make sure the user actually has the full link, and the IDs match
+      if spotify_playlist.id != params[:playlist_id]
+        return { error: "Unauthorized" }.to_json
+      end
+
+      puts "Searching for Spotify song using name #{song_name}"
+      songs = spotify_instances[user_id].search_for_song(song_name)
+      return songs.collect do |song|
+        {
+          id: song.id,
+          name: song.name,
+          artists: song.artists.collect { |artist| artist.name },
+          thumbnail: song.album.images[1]["url"],
+        }
+      end.to_json
+    end
+
     # Caching state
     def sonos_instances
       @sonos_instances ||= {}
