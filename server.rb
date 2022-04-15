@@ -101,7 +101,9 @@ module SonosPartyMode
       erb :party_index
     end
 
-    post "/party/join/:user_id/:playlist_id" do
+    post "/party/join/:user_id/:playlist_id/:song_id" do
+      content_type :json
+
       user_id = params[:user_id].to_i
       spotify_playlist = spotify_instances[user_id].party_playlist
       sonos = sonos_instances[user_id]
@@ -112,11 +114,9 @@ module SonosPartyMode
         return
       end
 
-      # TODO: replace below, once we search for a specific ID
-
-
       # Step 1: Search Spotify for that specific song based on the ID that's passed in
-      song = RSpotify::Track.search(params[:song]).to_a.first
+      # song = RSpotify::Track.search(params[:song]).to_a.first
+      song = RSpotify::Track.find(params.fetch(:song_id))
 
       # Step 2: Add the resulting song onto the favorite playlist, ready to be queueue
       spotify_instances[user_id].add_song_to_party_playlist(song) do
@@ -140,7 +140,7 @@ module SonosPartyMode
       # TODO: maybe also verify response status here
       # binding.pry
 
-      erb :party_index
+      return {success: true}.to_json
     end
 
     def all_sessions?

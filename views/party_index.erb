@@ -17,7 +17,7 @@
         var response = JSON.parse(xhr.responseText);
         var html = '';
         for (var i = 0; i < response.length; i++) {
-          html += '<li class="autocomplete-entry">'
+          html += '<li class="autocomplete-entry" onclick="queueSong(\'' + response[i].id + '\')">'
           html += '<img src="' + response[i].thumbnail + '" class="autocomplete-image" />'
           html += '<span class="autocomplete-label">' + response[i].name + '</span>'
           html += '</li>';
@@ -29,6 +29,24 @@
   }
   refreshAutocomplete(); // TODO: remove
   const processChange = debounce(() => refreshAutocomplete());
+
+  function queueSong(songId) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', window.location.pathname + "/" + songId, true);
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        var response = JSON.parse(xhr.responseText);
+        if (response.success) {
+          alert("Successfully added song to queue, it will be played very soon");
+        } else {
+          alert("Something went wrong queuing this song")
+        }
+      } else {
+        alert("Something went wrong queuing this song")
+      }
+    };
+    xhr.send();
+  }
 
   function debounce(func, timeout = 500){
     let timer;
