@@ -60,7 +60,7 @@ module SonosPartyMode
     end
 
     def ensure_current_sonos_settings!
-      # return unless self.party_session_active
+      return unless self.party_session_active
 
       self.ensure_volume!(self.target_volume)
       self.ensure_music_playing!
@@ -81,6 +81,13 @@ module SonosPartyMode
   
       puts "Resuming playback for Sonos system"
       client_control_request("groups/#{group_to_use}/playback/play", method: :post)
+    end
+
+    def pause_playback!
+      return unless playback_is_playing?
+
+      puts "Pausing playback for Sonos system"
+      client_control_request("groups/#{group_to_use}/playback/pause", method: :post)
     end
 
     def get_volume

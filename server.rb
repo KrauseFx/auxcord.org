@@ -82,11 +82,11 @@ module SonosPartyMode
 
       sonos = sonos_instances[session[:user_id]]
       playlist = sonos.ensure_playlist_in_favorites(spotify_playlist_id)
-      sonos.party_session_active = true
 
       # Prepare all the variables needed
       @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
       @volume = sonos.database_row.fetch(:volume)
+      @party_on = sonos.party_session_active      
 
       erb :party
     end
@@ -150,14 +150,24 @@ module SonosPartyMode
         return
       end
 
+      sonos = sonos_instances[session[:user_id]]
+
       if params[:volume]
         volume = params[:volume].to_i
-        sonos_instances[session[:user_id]].ensure_volume!(volume, check_first: false) # First, set the volume
-        sonos_instances[session[:user_id]].target_volume = volume # Then, set it as the target volume for when a user changes it
+        sonos.ensure_volume!(volume, check_first: false) # First, set the volume
+        sonos.target_volume = volume # Then, set it as the target volume for when a user changes it
         Db.sonos_tokens.where(user_id: session[:user_id]).update(volume: volume) # now, store in db for next run, important to use full query
       end
 
-      binding.pry
+      if params[:party_toggle]
+        if params[:party_toggle] == "true"
+          sonos.party_session_active = true
+          sonos.ensure_music_playing!
+        else
+          sonos.party_session_active = false
+          sonos.pause_playback!
+        end
+      end
     end
 
     def all_sessions?
