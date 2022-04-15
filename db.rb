@@ -23,6 +23,7 @@ module SonosPartyMode
           String :access_token
           String :refresh_token
           String :expires_in
+          Int :volume, default: 20
         end
       end
       return shared_database[:sonos_tokens]

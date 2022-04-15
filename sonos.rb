@@ -15,7 +15,7 @@ module SonosPartyMode
 
     def initialize(user_id:)
       @user_id = user_id
-      @target_volume = 5 # TODO: load from db
+      @target_volume = database_row[:volume]
       @party_session_active = false
     end
       
@@ -88,8 +88,10 @@ module SonosPartyMode
       client_control_request("groups/#{group_to_use}/groupVolume")
     end
 
-    def ensure_volume!(goal_volume)
-      return if get_volume.fetch("volume") == goal_volume
+    def ensure_volume!(goal_volume, check_first: true)
+      if check_first # when volume is manually changed in admin panel, we want to skip that
+        return if get_volume.fetch("volume") == goal_volume
+      end
 
       client_control_request(
         "groups/#{group_to_use}/groupVolume",

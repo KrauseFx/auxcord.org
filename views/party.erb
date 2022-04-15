@@ -1,3 +1,35 @@
-<h3>Party \o/</h3>
+<h3>Jukebox for Sonos - Party Host</h3>
 
-<a href="<%= @party_join_link %>"><%= @party_join_link %></a>
+<h4>Generated URL</h4>
+<p><a href="<%= @party_join_link %>"><%= @party_join_link %></a></p>
+<%# TODO: Add QR Code %>
+
+<h4>Manage Party</h4>
+
+<h5>Volume Control</h5>
+<div class="slidecontainer">
+  <input type="range" min="1" max="100" value="<%= @volume %>" class="slider" id="volume-slider">
+  <span id="volume-label"><%= @volume %></span>
+</div>
+
+<h5>End this party</h5>
+
+Ready to head out for the night? Stop the party
+
+<script type="text/javascript">
+  // Send the updated volume slider value to the server
+  var slider = document.getElementById("volume-slider");
+  slider.onchange = function() {
+    document.getElementById("volume-label").innerHTML = slider.value;
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("POST", "/party/host/update", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("volume=" + slider.value);
+  }
+</script>
+
+<style type="text/css">
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  }
+</style>
