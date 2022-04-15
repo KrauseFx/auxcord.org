@@ -23,6 +23,7 @@
           html += '<li class="autocomplete-entry" onclick="queueSong(\'' + response[i].id + '\')">'
           html += '<img src="' + response[i].thumbnail + '" class="autocomplete-image" />'
           html += '<span class="autocomplete-label">' + response[i].name + '</span>'
+          html += '<span class="autocomplete-artist">' + response[i].artists.join(", ") + '</span>'
           html += '</li>';
         }
         document.getElementById('song-list').innerHTML = html;
@@ -114,6 +115,13 @@
     height: 50px;
     border-radius: 5px;
     margin-right: 10px;
+  }
+  .autocomplete-artist {
+    font-size: 16px;
+    position: relative;
+    top: -15px;
+    color: #999;
+    margin-left: 15px;
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
