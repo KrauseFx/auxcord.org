@@ -77,7 +77,6 @@ module SonosPartyMode
     end
 
     def search_for_song(name)
-      # TODO: also search for album and artist
       return RSpotify::Track.search(name)
     end
 
