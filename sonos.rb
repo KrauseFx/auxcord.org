@@ -18,6 +18,12 @@ module SonosPartyMode
       @user_id = user_id
       @target_volume = database_row[:volume]
       @group_to_use = database_row[:group]
+      groups_cached = self.groups
+      unless groups_cached.collect { |a| a["id"] }.include?(@group_to_use)
+        # The group ID doesn't exist any more, fallback to the default one (most speakers)
+        @group_to_use = groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
+      end
+      binding.pry
       @party_session_active = false
     end
       

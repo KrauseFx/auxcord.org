@@ -109,7 +109,7 @@ module SonosPartyMode
           number_of_speakers: group.fetch("playerIds").count
         }
       end.sort_by { |group| group[:number_of_speakers] }.reverse
-      @selected_group = sonos.database_row.fetch(:group) || @groups.first[:id]
+      @selected_group = sonos.group_to_use
 
       # Generate a QR code for the invite URL
       @qr_code = RQRCode::QRCode.new(@party_join_link)
