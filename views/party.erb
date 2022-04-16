@@ -14,6 +14,10 @@
 <h4>Manage Party</h4>
 
 <h5>Volume Control</h5>
+
+<button class="button button3" onclick="volumeDown()">Volume Down</button>
+<button class="button button3" onclick="volumeUp()">Volume Up</button>
+
 <div class="slidecontainer">
   <input type="range" min="1" max="100" value="<%= @volume %>" class="slider" id="volume-slider">
   <span id="volume-label"><%= @volume %></span>
@@ -65,6 +69,16 @@ Ready to head out for the night? Stop the party<br /><br />
     xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     xhttp.send("group_to_use=" + groupToUse);
   }
+  function volumeUp() {
+    var slider = document.getElementById("volume-slider");
+    slider.value = parseInt(slider.value) + 5;
+    slider.onchange();
+  }
+  function volumeDown() {
+    var slider = document.getElementById("volume-slider");
+    slider.value = parseInt(slider.value) - 5;
+    slider.onchange();
+  }
 </script>
 
 <style type="text/css">
@@ -78,10 +92,6 @@ Ready to head out for the night? Stop the party<br /><br />
   #volume-label {
     font-weight: bold;
     font-size: 20px;
-  }
-  svg {
-    /* width: 200px;
-    height: 200px; */
   }
 </style>
 
@@ -203,4 +213,24 @@ Ready to head out for the night? Stop the party<br /><br />
     border-radius: 50%;
     background: white;
   }
+</style>
+<style type="text/css">
+  .button {
+    background-color: #6495ED;
+    border: none;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+  }
+
+  .button1 {border-radius: 2px;}
+  .button2 {border-radius: 4px;}
+  .button3 {border-radius: 8px;}
+  .button4 {border-radius: 12px;}
+  .button5 {border-radius: 50%;}
 </style>
