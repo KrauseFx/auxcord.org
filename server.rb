@@ -36,10 +36,14 @@ module SonosPartyMode
       end
     end
 
-    def ensure_current_sonos_settings!
-      sonos_instances.each do |user_id, sonos|
-        sonos.ensure_current_sonos_settings!
-      end
+    # -----------------------
+    # Session specific code
+    # -----------------------
+
+    def all_sessions?
+      session[:user_id] = 10 # TODO: remove
+
+      return sonos_instances[session[:user_id]] && spotify_instances[session[:user_id]]
     end
 
     get "/" do
@@ -73,6 +77,16 @@ module SonosPartyMode
       erb :manager
     end
 
+    def ensure_current_sonos_settings!
+      sonos_instances.each do |user_id, sonos|
+        sonos.ensure_current_sonos_settings!
+      end
+    end
+
+    # -----------------------
+    # Admin Dashboard
+    # -----------------------
+
     get "/party" do
       unless all_sessions?
         redirect "/"
@@ -88,12 +102,62 @@ module SonosPartyMode
       @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
       @volume = sonos.database_row.fetch(:volume)
       @party_on = sonos.party_session_active      
+      @groups = sonos.groups.collect do |group|
+        {
+          name: group.fetch("name"),
+          id: group.fetch("id"),
+          number_of_speakers: group.fetch("playerIds").count
+        }
+      end.sort_by { |group| group[:number_of_speakers] }.reverse
+      @selected_group = sonos.database_row.fetch(:group) || @groups.first[:id]
 
       # Generate a QR code for the invite URL
       @qr_code = RQRCode::QRCode.new(@party_join_link)
 
       erb :party
     end
+
+    post "/party/host/update" do
+      unless all_sessions?
+        redirect "/"
+        return
+      end
+
+      sonos = sonos_instances[session[:user_id]]
+
+      if params[:volume]
+        volume = params[:volume].to_i
+        sonos.ensure_volume!(volume, check_first: false) # First, set the volume
+        sonos.target_volume = volume # Then, set it as the target volume for when a user changes it
+        Db.sonos_tokens.where(user_id: session[:user_id]).update(volume: volume) # now, store in db for next run, important to use full query
+      end
+
+      if params[:party_toggle]
+        if params[:party_toggle] == "true"
+          sonos.party_session_active = true
+          sonos.ensure_music_playing!
+        else
+          sonos.party_session_active = false
+          sonos.pause_playback!
+        end
+      end
+
+      if params[:group_to_use]
+        # First, pause playback at the current group
+        sonos.pause_playback!
+
+        # Update the currently used group in the database, as well as the current session
+        Db.sonos_tokens.where(user_id: session[:user_id]).update(group: params[:group_to_use]) # now, store in db for next run, important to use full query
+        sonos.group_to_use = params[:group_to_use]
+
+        # Now, trigger playing on the new group
+        sonos.ensure_music_playing!
+      end
+    end
+
+    # -----------------------
+    # Guest code
+    # -----------------------
 
     get "/party/join/:user_id/:playlist_id" do
       # No auth here, we just verify the 2 IDs
@@ -146,38 +210,6 @@ module SonosPartyMode
       # binding.pry
 
       return {success: true}.to_json
-    end
-
-    post "/party/host/update" do
-      unless all_sessions?
-        redirect "/"
-        return
-      end
-
-      sonos = sonos_instances[session[:user_id]]
-
-      if params[:volume]
-        volume = params[:volume].to_i
-        sonos.ensure_volume!(volume, check_first: false) # First, set the volume
-        sonos.target_volume = volume # Then, set it as the target volume for when a user changes it
-        Db.sonos_tokens.where(user_id: session[:user_id]).update(volume: volume) # now, store in db for next run, important to use full query
-      end
-
-      if params[:party_toggle]
-        if params[:party_toggle] == "true"
-          sonos.party_session_active = true
-          sonos.ensure_music_playing!
-        else
-          sonos.party_session_active = false
-          sonos.pause_playback!
-        end
-      end
-    end
-
-    def all_sessions?
-      session[:user_id] = 10 # TODO: remove
-
-      return sonos_instances[session[:user_id]] && spotify_instances[session[:user_id]]
     end
 
     # -----------------------

@@ -19,6 +19,16 @@
   <span id="volume-label"><%= @volume %></span>
 </div>
 
+<h5>Groups</h5>
+<div id="groupsDiv">
+  <% @groups.each do |group| %>
+    <label class="container"><%= group[:name] %> (<%= group[:number_of_speakers] %> speakers)
+      <input value="<%= group[:id] %>" type="radio" name="group" onclick="updateGroup()" <%= @selected_group == group[:id] ? 'checked="checked"' : '' %>>
+      <span class="checkmark"></span>
+    </label>
+  <% end %>
+</div>
+
 <h5>End this party</h5>
 
 Ready to head out for the night? Stop the party<br /><br />
@@ -46,6 +56,15 @@ Ready to head out for the night? Stop the party<br /><br />
     xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     xhttp.send("party_toggle=" + partyToggle.checked);
   }
+
+  function updateGroup() {
+    // Get the currently selected group
+    var groupToUse = document.querySelector('input[name="group"]:checked').value;
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("POST", "/party/host/update", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("group_to_use=" + groupToUse);
+  }
 </script>
 
 <style type="text/css">
@@ -67,6 +86,7 @@ Ready to head out for the night? Stop the party<br /><br />
 </style>
 
 <style type="text/css">
+  /* Custom Switch CSS */
   .switch {
     position: relative;
     display: inline-block;
@@ -116,5 +136,71 @@ Ready to head out for the night? Stop the party<br /><br />
   }
   .switch-slider.round:before {
     border-radius: 50%;
+  }
+</style>
+<style type="text/css">
+  /* Custom Radio Buttons CSS */
+  /* The container */
+  .container {
+    display: block;
+    position: relative;
+    padding-left: 35px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    font-size: 22px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Hide the browser's default radio button */
+  .container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* Create a custom radio button */
+  .checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 25px;
+    width: 25px;
+    background-color: #eee;
+    border-radius: 50%;
+  }
+
+  /* On mouse-over, add a grey background color */
+  .container:hover input ~ .checkmark {
+    background-color: #ccc;
+  }
+
+  /* When the radio button is checked, add a blue background */
+  .container input:checked ~ .checkmark {
+    background-color: #2196F3;
+  }
+
+  /* Create the indicator (the dot/circle - hidden when not checked) */
+  .checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+  }
+
+  /* Show the indicator (dot/circle) when checked */
+  .container input:checked ~ .checkmark:after {
+    display: block;
+  }
+
+  /* Style the indicator (dot/circle) */
+  .container .checkmark:after {
+    top: 9px;
+    left: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: white;
   }
 </style>

@@ -9,6 +9,7 @@ module SonosPartyMode
     attr_accessor :user_id
     attr_accessor :session_id
     attr_accessor :party_session_active
+    attr_accessor :group_to_use
 
     # Session specific settings
     attr_accessor :target_volume
@@ -16,6 +17,7 @@ module SonosPartyMode
     def initialize(user_id:)
       @user_id = user_id
       @target_volume = database_row[:volume]
+      @group_to_use = database_row[:group]
       @party_session_active = false
     end
       
@@ -113,10 +115,6 @@ module SonosPartyMode
 
     def primary_household
       households.first.fetch("id")
-    end
-
-    def group_to_use
-      groups.first.fetch("id") # TODO: offer control
     end
 
     def households
