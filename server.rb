@@ -172,6 +172,10 @@ module SonosPartyMode
         # Now, trigger playing on the new group
         sonos.ensure_music_playing!
       end
+
+      if params[:skip_song]
+        sonos.skip_song!
+      end
     end
 
     # -----------------------
@@ -179,6 +183,8 @@ module SonosPartyMode
     # -----------------------
 
     get "/party/join/:user_id/:playlist_id" do
+      @title = "Queue a Song"
+
       # No auth here, we just verify the 2 IDs
       spotify_playlist = spotify_instances[params[:user_id].to_i].party_playlist
       if spotify_playlist.id != params[:playlist_id]

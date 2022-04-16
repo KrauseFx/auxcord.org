@@ -96,6 +96,11 @@ module SonosPartyMode
       client_control_request("groups/#{group_to_use}/playback/pause", method: :post)
     end
 
+    def skip_song!
+      puts "Skipping song"
+      client_control_request("/groups/#{group_to_use}/playback/skipToNextTrack", method: :post)
+    end
+
     def get_volume
       # {"volume"=>40, "muted"=>false, "fixed"=>false}
       client_control_request("groups/#{group_to_use}/groupVolume")

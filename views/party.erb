@@ -13,6 +13,8 @@
 
 <h4>Manage Party</h4>
 
+<button class="button button3" onclick="skipSong()">Skip song</button>
+
 <h5>Volume Control</h5>
 
 <button class="button button3" onclick="volumeDown()">Volume Down</button>
@@ -78,6 +80,12 @@ Ready to head out for the night? Stop the party<br /><br />
     var slider = document.getElementById("volume-slider");
     slider.value = parseInt(slider.value) - 5;
     slider.onchange();
+  }
+  function skipSong() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("POST", "/party/host/update", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("skip_song=true");
   }
 </script>
 
