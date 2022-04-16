@@ -23,7 +23,6 @@ module SonosPartyMode
         # The group ID doesn't exist any more, fallback to the default one (most speakers)
         @group_to_use = groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
       end
-      binding.pry
       @party_session_active = false
     end
       
@@ -72,7 +71,7 @@ module SonosPartyMode
 
       self.ensure_volume!(self.target_volume)
       self.ensure_music_playing!
-      # TODO: add more here
+      self.unmute_speakers!
     end
 
     def playback_status
@@ -105,13 +104,28 @@ module SonosPartyMode
 
     def ensure_volume!(goal_volume, check_first: true)
       if check_first # when volume is manually changed in admin panel, we want to skip that
-        return if get_volume.fetch("volume") == goal_volume
+        get_volume_cached = get_volume
+        # If the speakers are unmuted, and the volume is correct, nothing to do here
+        return if get_volume_cached.fetch("volume") == goal_volume && get_volume_cached.fetch("muted") == false
       end
 
+      # The request below will set the volume
       client_control_request(
         "groups/#{group_to_use}/groupVolume",
         method: :post,
         body: { volume: goal_volume }
+      )
+      unmute_speakers!
+    end
+
+    def unmute_speakers!
+      # This is a separate request. It seems like there is no good Sonos API endpoint
+      # to check if any of the speakers in a given group is muted, so it's best to just 
+      # send this API request from time to time in the background
+      client_control_request(
+        "groups/#{group_to_use}/groupVolume/mute",
+        method: :post,
+        body: { muted: false }
       )
     end
 
