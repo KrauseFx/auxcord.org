@@ -21,7 +21,7 @@ module SonosPartyMode
         sonos_instances[user[:id]] ||= SonosPartyMode::Sonos.new(user_id: user[:id])
         spotify_instances[user[:id]] ||= SonosPartyMode::Spotify.new(user_id: user[:id])
 
-        # Clear all Sonos Spotify Party playlists for now (# TODO: We might want to change this)
+        # Clear all Sonos Spotify Party playlists for now
         puts "Clearing previous songs from Party Playlists for user with id #{user[:id]}"
         party_playlist = spotify_instances[user[:id]].party_playlist
         party_playlist.remove_tracks!(party_playlist.tracks) if party_playlist

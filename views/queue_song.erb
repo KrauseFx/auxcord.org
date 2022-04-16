@@ -5,7 +5,7 @@
   <p class="footnote">This might take a few seconds</p>
 </div>
 
-<input type="text" name="song" value="sia" placeholder="Enter Song Name" id="song-input"> 
+<input type="text" name="song" value="" placeholder="Enter Song Name" id="song-input"> 
 <ul id="song-list"></ul>
 
 <script type="text/javascript">
@@ -31,7 +31,6 @@
     };
     xhr.send();
   }
-  refreshAutocomplete(); // TODO: remove
   const processChange = debounce(() => refreshAutocomplete());
 
   function queueSong(songId) {
