@@ -22,9 +22,16 @@ module SonosPartyMode
         spotify_instances[user[:id]] ||= SonosPartyMode::Spotify.new(user_id: user[:id])
 
         # Clear all Sonos Spotify Party playlists for now
-        puts "Clearing previous songs from Party Playlists for user with id #{user[:id]}"
         party_playlist = spotify_instances[user[:id]].party_playlist
-        party_playlist.remove_tracks!(party_playlist.tracks) if party_playlist
+        # Only clear the music if that playlist was already added to Sonos
+        # Since Sonos doesn't support empty playlists, we put in a single song just for that
+        if party_playlist
+          sonos_playlist = sonos_instances[user[:id]].ensure_playlist_in_favorites(party_playlist.id)
+          unless sonos_playlist.nil?
+            puts "Clearing previous songs from Party Playlists for user with id #{user[:id]}"
+            party_playlist.remove_tracks!(party_playlist.tracks)
+          end
+        end
       end
 
       # Ongoing background thread to monitor all Sonos systems
@@ -93,10 +100,18 @@ module SonosPartyMode
         return
       end
 
-      spotify_playlist_id = spotify_instances[session[:user_id]].party_playlist.id
+      spotify_playlist = spotify_instances[session[:user_id]].party_playlist
+      spotify_playlist_id = spotify_playlist.id
 
       sonos = sonos_instances[session[:user_id]]
       playlist = sonos.ensure_playlist_in_favorites(spotify_playlist_id)
+
+      if playlist.nil?
+        # User doesn't have the Spotify playlist in their favorites
+        @spotify_playlist_name = spotify_playlist.name
+        @already_submitted = params.fetch("submitted").to_s == "true"
+        return erb :add_playlist_to_favs        
+      end
 
       # Prepare all the variables needed
       @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id

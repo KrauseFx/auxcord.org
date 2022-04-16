@@ -61,7 +61,6 @@ module SonosPartyMode
           fav["resource"]["type"] == "PLAYLIST" &&
           fav["resource"]["id"]["objectId"].include?(spotify_playlist_id)
       end
-      binding.pry if matched.nil?
 
       return matched
     end

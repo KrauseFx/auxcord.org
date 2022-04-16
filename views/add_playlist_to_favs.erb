@@ -1,0 +1,20 @@
+<h1>Jukebox for Sonos</h1>
+
+<h3>Finish setup</h3>
+
+<% if @already_submitted %>
+  <%# TODO: add design %>
+  <h2 style="color: red">Could not find the playlist, please make sure to follow the steps below</h2>
+<% end %>
+
+<p>Before you can use Jukebox for Sonos, you have to do one manual step:</p>
+
+<ol>
+  <li>Open the Sonos app on your iPhone or Android</li>
+  <li>Switch to <i>Search</i> and enter <b>"<%= @spotify_playlist_name %>"</b> for <i>Playlists</i></li>
+  <li>Select the playlist</li>
+  <li>Tap on the top right 3 dots ...</li>
+  <li>Tap on <i>Add Playlist to My Sonos</i></li>
+</ol>
+
+<a href="/party?submitted=true">Press here once you completed the above</a>

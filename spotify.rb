@@ -70,7 +70,14 @@ module SonosPartyMode
       # Find or create the Party playlist
       playlist_id = spotify_user_row.fetch(:playlist_id)
       if !playlist_id
-        playlist_id = spotify_user.create_playlist!("SonosPartyMode - Don't Delete").id
+        playlist = spotify_user.create_playlist!("#{user_id} - Jukebox for Sonos - Don't Delete")
+        playlist_id = playlist.id
+        # Add a welcome song to the playlist, so Sonos can handle the playlist
+        # Sonos app doesn't handle empty playlists well
+        hello_there_song = RSpotify::Track.search("Hello there dillon francis").first
+        playlist.add_tracks!([hello_there_song])
+
+        # Remember the Spotify playlist ID
         Db.spotify_tokens.where(user_id: user_id).update(playlist_id: playlist_id) # use full query syntax
       end
       return (@_playlist = RSpotify::Playlist.find(spotify_user.id, playlist_id))
