@@ -170,7 +170,7 @@ module SonosPartyMode
         sonos.group_to_use = params[:group_to_use]
 
         # Now, trigger playing on the new group
-        sonos.ensure_music_playing!
+        sonos.ensure_music_playing! if sonos.party_session_active # but only if the party is currently active
       end
 
       if params[:skip_song]
