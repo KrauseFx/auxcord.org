@@ -44,6 +44,8 @@
         var response = JSON.parse(xhr.responseText);
         if (response.success) {
           alert("Successfully added song to queue, it will be played very soon");
+          document.getElementById('song-input').value = '';
+          document.getElementById('song-list').innerHTML = ""
         } else {
           alert("Something went wrong queuing this song")
         }
@@ -91,20 +93,30 @@
   }
   #song-list {
     list-style: none;
-    padding: 20px;
-    margin: 30px;
+    padding: 0;
+    margin: 0;
     background-color: #fff;
     z-index: 1;
   }
   #song-list > .autocomplete-entry {
-    padding: 10px;
+    padding: 0px;
     cursor: pointer;
     border: 1px solid #ccc;
+    white-space: nowrap;
   }
+  /* Desktop screens */
+  @media only screen and (min-width: 768px) {
+    #song-list {
+      margin: 20px;
+      padding: 30px;
+    }
+  }
+
   .autocomplete-label {
-    font-size: 22px;
+    font-size: 18px;
     position: relative;
     top: -15px;
+    white-space: nowrap ;
   }
   .autocomplete-entry:hover {
     background-color: #eee;
