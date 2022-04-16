@@ -54,6 +54,8 @@ module SonosPartyMode
     end
 
     get "/" do
+      @title = "Login"
+
       session[:user_id] = 10 # TODO: remove
       # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
 
@@ -76,6 +78,7 @@ module SonosPartyMode
     end
 
     get "/manager" do
+      @title = "Party Mode" # TODO: when is this used
       unless all_sessions?
         redirect "/"
         return
@@ -95,6 +98,7 @@ module SonosPartyMode
     # -----------------------
 
     get "/party" do
+      @title = "Party Host"
       unless all_sessions?
         redirect "/"
         return
