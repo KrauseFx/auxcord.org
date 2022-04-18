@@ -8,14 +8,12 @@ module SonosPartyMode
   class Spotify
     attr_accessor :user_id
     attr_accessor :queued_songs
-
-    # To prevent the same song from being queued again
-    # attr_accessor :previously_queued_songs
+    attr_accessor :past_songs
 
     def initialize(user_id:)
       self.user_id = user_id
       self.queued_songs = []
-      # self.previously_queued_songs = []
+      self.past_songs = []
     end
 
     def new_auth!(authorization_code:)
@@ -104,8 +102,9 @@ module SonosPartyMode
       next_song = queued_songs.shift
       if next_song.nil?
         puts "No more songs in queue..."
-        return
+        return false
       end
+      self.past_songs << next_song
       party_playlist.add_tracks!([next_song])
 
       # Get the Sonos ID of the favorite playlist
@@ -122,6 +121,7 @@ module SonosPartyMode
         }
       )
       party_playlist.remove_tracks!([next_song])
+      return true
     end
 
     def permission_scope

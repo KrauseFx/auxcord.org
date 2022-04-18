@@ -10,7 +10,10 @@ module SonosPartyMode
     attr_accessor :session_id
     attr_accessor :party_session_active
     attr_accessor :group_to_use
+    
+    # Queueing system
     attr_accessor :current_item_id # it's being set by the `/callback` triggers
+    attr_accessor :currently_playing_guest_wished_song
 
     # Session specific settings
     attr_accessor :target_volume
@@ -25,7 +28,9 @@ module SonosPartyMode
         @group_to_use = groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
       end
       @party_session_active = false
-      subscribe_to_playback
+      @currently_playing_guest_wished_song = false
+
+      self.subscribe_to_playback
     end
       
     def new_auth!(authorization_code:)

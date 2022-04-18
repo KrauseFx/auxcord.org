@@ -187,7 +187,6 @@ module SonosPartyMode
 
     post "/party/join/:user_id/:playlist_id/:song_id" do
       content_type :json
-
       
       user_id = params[:user_id].to_i
       spotify_instance = spotify_instances[user_id]
@@ -203,10 +202,25 @@ module SonosPartyMode
       # Queue that song
       spotify_instance.add_song_to_queue(RSpotify::Track.find(params.fetch(:song_id)))
 
-      return {
-        success: true,
-        position: spotify_instance.queued_songs.count
-      }.to_json
+      current_metadata = sonos.metadata_status
+      next_object_id = current_metadata.fetch("nextItem")["track"]["id"]["objectId"] # e.g. spotify:track:01LcEnzRdYXfpJmmLPmdMz
+      
+      # Check if we can queue right away, or if we have to wait for the next song to start
+      # This basically means, that no user wished song is currently playing, but the default playlist only
+      if sonos.currently_playing_guest_wished_song
+        return {
+          success: true,
+          position: spotify_instance.queued_songs.count
+        }.to_json
+      else
+        binding.pry if spotify_instance.queued_songs.count != 1
+        spotify_instance.add_next_song_to_sonos_queue!(sonos)
+        sonos.currently_playing_guest_wished_song = true
+        return {
+          success: true,
+          position: 0
+        }.to_json
+      end
     end
 
     # -----------------------
@@ -258,7 +272,11 @@ module SonosPartyMode
         # we use this to do proper queueing of upcoming songs
 
         # We queue the next song (after this one's finished)
-        spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+        if spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+          sonos_instance.currently_playing_guest_wished_song = true
+        else
+          sonos_instance.currently_playing_guest_wished_song = false
+        end
 
         sonos_instance.current_item_id = info.fetch("itemId")
       end
