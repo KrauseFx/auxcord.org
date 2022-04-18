@@ -245,7 +245,7 @@ module SonosPartyMode
       spotify_instance = spotify_instances[sonos_instance.user_id]
 
       if !["PLAYBACK_STATE_PLAYING", "PLAYBACK_STATE_BUFFERING"].include?(info.fetch("playbackState"))
-        sonos_instance.ensure_music_playing!
+        sonos_instance.play_music!
       end
 
       if sonos_instance.current_item_id != info.fetch("itemId") && 
