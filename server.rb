@@ -188,8 +188,10 @@ module SonosPartyMode
     post "/party/join/:user_id/:playlist_id/:song_id" do
       content_type :json
 
+      
       user_id = params[:user_id].to_i
-      spotify_playlist = spotify_instances[user_id].party_playlist
+      spotify_instance = spotify_instances[user_id]
+      spotify_playlist = spotify_instance.party_playlist
       sonos = sonos_instances[user_id]
 
       # To make sure the user actually has the full link, and the IDs match
@@ -199,9 +201,12 @@ module SonosPartyMode
       end
 
       # Queue that song
-      spotify_instances[user_id].add_song_to_queue(RSpotify::Track.find(params.fetch(:song_id)))
+      spotify_instance.add_song_to_queue(RSpotify::Track.find(params.fetch(:song_id)))
 
-      return {success: true}.to_json
+      return {
+        success: true,
+        position: spotify_instance.queued_songs.count
+      }.to_json
     end
 
     # -----------------------
