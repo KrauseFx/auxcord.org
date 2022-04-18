@@ -20,18 +20,6 @@ module SonosPartyMode
       SonosPartyMode::Db.users.each do |user|
         sonos_instances[user[:id]] ||= SonosPartyMode::Sonos.new(user_id: user[:id])
         spotify_instances[user[:id]] ||= SonosPartyMode::Spotify.new(user_id: user[:id])
-
-        # Clear all Sonos Spotify Party playlists for now
-        party_playlist = spotify_instances[user[:id]].party_playlist
-        # Only clear the music if that playlist was already added to Sonos
-        # Since Sonos doesn't support empty playlists, we put in a single song just for that
-        if party_playlist
-          sonos_playlist = sonos_instances[user[:id]].ensure_playlist_in_favorites(party_playlist.id)
-          unless sonos_playlist.nil?
-            puts "Clearing previous songs from Party Playlists for user with id #{user[:id]}"
-            party_playlist.remove_tracks!(party_playlist.tracks)
-          end
-        end
       end
 
       # Ongoing background thread to monitor all Sonos systems
@@ -104,7 +92,8 @@ module SonosPartyMode
         return
       end
 
-      spotify_playlist = spotify_instances[session[:user_id]].party_playlist
+      spotify_instance = spotify_instances[session[:user_id]]
+      spotify_playlist = spotify_instance.party_playlist
       spotify_playlist_id = spotify_playlist.id
 
       sonos = sonos_instances[session[:user_id]]
@@ -121,6 +110,7 @@ module SonosPartyMode
       @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
       @volume = sonos.database_row.fetch(:volume)
       @party_on = sonos.party_session_active      
+      @queued_songs = spotify_instance.queued_songs
       @groups = sonos.groups.collect do |group|
         {
           name: group.fetch("name"),
@@ -208,31 +198,8 @@ module SonosPartyMode
         return
       end
 
-      # Step 1: Search Spotify for that specific song based on the ID that's passed in
-      # song = RSpotify::Track.search(params[:song]).to_a.first
-      song = RSpotify::Track.find(params.fetch(:song_id))
-
-      # Step 2: Add the resulting song onto the favorite playlist, ready to be queueue
-      spotify_instances[user_id].add_song_to_party_playlist(song) do
-        # Step 3: Get the Sonos ID of the favorite playlist
-        fav_id = sonos.ensure_playlist_in_favorites(spotify_playlist.id)
-
-        # Step 4: Queue all songs from that playlist into the Sonos Queue
-        play_fav = sonos.client_control_request(
-          "/groups/#{sonos.group_to_use}/favorites", 
-          method: :post, 
-          body: {
-            favoriteId: fav_id.fetch("id"),
-            action: "INSERT_NEXT"
-          }
-        )
-        # Step 5: Remove all songs we just added to the queue, from the Sonos playlist
-        # This is done by the block inside `spotify.rb`
-      end
-
-      # Step 6: Render success message to the (guest) end-user
-      # TODO: maybe also verify response status here
-      # binding.pry
+      # Queue that song
+      spotify_instances[user_id].add_song_to_queue(RSpotify::Track.find(params.fetch(:song_id)))
 
       return {success: true}.to_json
     end
@@ -258,6 +225,58 @@ module SonosPartyMode
       sonos_instances[user_id] = new_sonos
 
       redirect "/"
+    end
+
+    # Sonos callback information
+    post "/callback" do
+      info = JSON.parse(request.body.read)
+      sonos_group_id = request.env.fetch("HTTP_X_SONOS_TARGET_VALUE")
+      puts "Received Sonos Web API callback for #{sonos_group_id}"
+
+      # Find the matching sonos session to use
+      sonos_instance = sonos_instances.values.find { |a| a.group_to_use == sonos_group_id }
+      return if sonos_instance.nil?
+
+      spotify_instance = spotify_instances[sonos_instance.user_id]
+
+      if !["PLAYBACK_STATE_PLAYING", "PLAYBACK_STATE_BUFFERING"].include?(info.fetch("playbackState"))
+        sonos_instance.ensure_music_playing!
+      end
+
+      if sonos_instance.current_item_id != info.fetch("itemId") && 
+        sonos_instance.current_item_id == info.fetch("previousItemId")
+
+        # Set it immediately, as the Sonos web requests do take some time to complete
+        sonos_instance.current_item_id = info.fetch("itemId") # always set it
+
+        # This means, the user has skipped to the next song, or the song has finished playing
+        # we use this to do proper queueing of upcoming songs
+
+        # We queue the next song (after this one's finished)
+        spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+
+        sonos_instance.current_item_id = info.fetch("itemId")
+      end
+
+      sonos_instance.current_item_id = info.fetch("itemId") # always set it
+
+      # => {"playbackState"=>"PLAYBACK_STATE_PLAYING",
+      #   "isDucking"=>false,
+      #   "itemId"=>"3d6iqwIjxdilDioPqbhU4cJPTGs=",
+      #   "positionMillis"=>14,
+      #   "previousItemId"=>"FwZvKUVmIj3zb3OsjfPQjF8BWsg=",
+      #   "previousPositionMillis"=>60368,
+      #   "playModes"=>{"repeat"=>false, "repeatOne"=>false, "shuffle"=>false, "crossfade"=>false},
+      #   "availablePlaybackActions"=>
+      #    {"canSkip"=>true,
+      #     "canSkipBack"=>true,
+      #     "canSeek"=>true,
+      #     "canPause"=>true,
+      #     "canStop"=>true,
+      #     "canRepeat"=>true,
+      #     "canRepeatOne"=>true,
+      #     "canCrossfade"=>true,
+      #     "canShuffle"=>true}}
     end
 
     # -----------------------

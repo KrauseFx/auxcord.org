@@ -49,3 +49,8 @@ Developed with Ruby 3.0.2
 ```
 bundle exec ruby server.rb
 ```
+### Cloudflare tunnel to test Sonos Web hooks
+
+```
+cloudflared tunnel run satisfactory-opt-some-chen-fx
+```

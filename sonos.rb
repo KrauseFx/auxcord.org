@@ -10,6 +10,7 @@ module SonosPartyMode
     attr_accessor :session_id
     attr_accessor :party_session_active
     attr_accessor :group_to_use
+    attr_accessor :current_item_id # it's being set by the `/callback` triggers
 
     # Session specific settings
     attr_accessor :target_volume
@@ -24,6 +25,7 @@ module SonosPartyMode
         @group_to_use = groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
       end
       @party_session_active = false
+      subscribe_to_playback
     end
       
     def new_auth!(authorization_code:)
@@ -52,6 +54,10 @@ module SonosPartyMode
         refresh_token: refresh_token,
         expires_in: response.fetch("expires_in"),
       )
+    end
+
+    def subscribe_to_playback
+      client_control_request("/groups/#{group_to_use}/playback/subscription", method: :post)
     end
 
     def ensure_playlist_in_favorites(spotify_playlist_id)
@@ -131,6 +137,11 @@ module SonosPartyMode
         method: :post,
         body: { muted: false }
       )
+    end
+
+    # Basic info about the media currently playing
+    def metadata_status
+      client_control_request("groups/#{group_to_use}/playbackMetadata")
     end
 
     # ----------------

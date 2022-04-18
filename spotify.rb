@@ -7,12 +7,14 @@ require_relative "./db"
 module SonosPartyMode
   class Spotify
     attr_accessor :user_id
+    attr_accessor :queued_songs
 
     # To prevent the same song from being queued again
     # attr_accessor :previously_queued_songs
 
     def initialize(user_id:)
       self.user_id = user_id
+      self.queued_songs = []
       # self.previously_queued_songs = []
     end
 
@@ -87,13 +89,39 @@ module SonosPartyMode
       return RSpotify::Track.search(name)
     end
 
-    def add_song_to_party_playlist(song)
-      # Verify we haven't queued this song before
+    # This method will add songs to the queue (playlist) on Spotify, but not yet add it to the Sonos queue
+    def add_song_to_queue(song)
+      # Verify we haven't queued this song before # TODO
       # return if previously_queued_songs.include?(song.id)
+      queued_songs << song
+    end
 
-      party_playlist.add_tracks!([song])
-      yield
-      party_playlist.remove_tracks!([song])
+    # Actually send all songs wished for to the Sonos queue
+    def add_next_song_to_sonos_queue!(sonos)
+      # First, clear the Spotify playlist, in case there was anything left there
+      party_playlist.remove_tracks!(party_playlist.tracks)
+
+      next_song = queued_songs.shift
+      if next_song.nil?
+        puts "No more songs in queue..."
+        return
+      end
+      party_playlist.add_tracks!([next_song])
+
+      # Get the Sonos ID of the favorite playlist
+      fav_id = sonos.ensure_playlist_in_favorites(party_playlist.id)
+
+      # Queue the one song from that playlist into the Sonos Queue
+      puts "Queueing #{next_song.name} by #{next_song.artists.first.name} to Sonos"
+      play_fav = sonos.client_control_request(
+        "/groups/#{sonos.group_to_use}/favorites", 
+        method: :post, 
+        body: {
+          favoriteId: fav_id.fetch("id"),
+          action: "INSERT_NEXT"
+        }
+      )
+      party_playlist.remove_tracks!([next_song])
     end
 
     def permission_scope

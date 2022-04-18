@@ -11,6 +11,14 @@
 )
 %>
 
+<h4>Song Queue</h4>
+
+<ol>
+  <% @queued_songs.each do |song| %>
+    <li><%= song.name %></li>
+  <% end %>
+</ol>
+
 <h4>Manage Party</h4>
 
 <button class="button button3" onclick="skipSong()">Skip song</button>
