@@ -28,7 +28,7 @@
 <h5>Groups</h5>
 <div id="groupsDiv">
   <% @groups.each do |group| %>
-    <label class="container"><%= group[:name] %> (<%= group[:number_of_speakers] %> speakers)
+    <label class="container"><%= group[:name] %> (<%= group[:number_of_speakers] %> <%= group[:number_of_speakers] == 1 ? "speaker" : "speakers" %>)
       <input value="<%= group[:id] %>" type="radio" name="group" onclick="updateGroup()" <%= @selected_group == group[:id] ? 'checked="checked"' : '' %>>
       <span class="checkmark"></span>
     </label>
