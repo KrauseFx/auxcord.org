@@ -205,7 +205,7 @@ module SonosPartyMode
       if parsed_body["fault"].to_s.length > 0
         if ["keymanagement.service.invalid_access_token", "keymanagement.service.access_token_expired"].include?(parsed_body["fault"]["detail"]["errorcode"])
           self.refresh_token
-          client_control_request(path, method: method, body: body)
+          return client_control_request(path, method: method, body: body)
         else
           raise parsed_body["fault"]["faultstring"]
         end
