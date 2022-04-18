@@ -43,9 +43,12 @@
       if (xhr.status === 200) {
         var response = JSON.parse(xhr.responseText);
         if (response.success) {
+          // TODO: songs vs song
+          let songsText = response.position == 1 ? "song" : "songs";
+          let prefix = response.position == 1 ? "is" : "are"
+          alert("Successfully added song to queue, there " + prefix + " " + response.position + " " + songsText + " before yours");
           document.getElementById('song-input').value = '';
           document.getElementById('song-list').innerHTML = ""
-          alert("Successfully added song to queue, there are " + response.position + " songs before yours");
         } else {
           alert("Something went wrong queuing this song")
         }
