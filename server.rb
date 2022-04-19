@@ -111,6 +111,8 @@ module SonosPartyMode
       @volume = sonos.database_row.fetch(:volume)
       @party_on = sonos.party_session_active      
       @queued_songs = spotify_instance.queued_songs
+      # Manually prefix the most recently queued song, as it's already in the Sonos queue
+      @queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count > 0
       @groups = sonos.groups.collect do |group|
         {
           name: group.fetch("name"),
