@@ -259,6 +259,7 @@ module SonosPartyMode
       spotify_instance = spotify_instances[sonos_instance.user_id]
 
       if !["PLAYBACK_STATE_PLAYING", "PLAYBACK_STATE_BUFFERING"].include?(info.fetch("playbackState"))
+        puts "user paused the group..."
         sonos_instance.play_music! if sonos_instance.party_session_active
       end
 

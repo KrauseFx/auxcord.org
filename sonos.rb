@@ -96,11 +96,11 @@ module SonosPartyMode
     def ensure_music_playing!
       return if playback_is_playing?
   
-      puts "Resuming playback for Sonos system"
       play_music!
     end
 
     def play_music!
+      puts "Resuming playback for Sonos system"
       client_control_request("groups/#{group_to_use}/playback/play", method: :post)
     end
 
