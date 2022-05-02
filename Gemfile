@@ -9,6 +9,7 @@ gem "sequel"
 gem "pg"
 gem "rqrcode", "~> 2.0"
 
-group :development do
+# TODO: Remove from Gemfile
+# group :development do
   gem "pry"
-end
+# end
