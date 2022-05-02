@@ -16,13 +16,13 @@ module SonosPartyMode
       self.past_songs = []
     end
 
-    def new_auth!(authorization_code:)
+    def new_auth!(authorization_code:, redirect_uri:)
       auth_string = Base64.strict_encode64(ENV['SPOTIFY_CLIENT_ID'] + ':' + ENV['SPOTIFY_CLIENT_SECRET'])
       auth_response = Excon.post(
         'https://accounts.spotify.com/api/token',
           body: URI.encode_www_form({
             'grant_type' => 'authorization_code',
-            'redirect_uri' => SPOTIFY_REDIRECT_URI,
+            'redirect_uri' => redirect_uri,
             'code' => authorization_code,
           }),
           headers: {
@@ -124,7 +124,8 @@ module SonosPartyMode
       return true
     end
 
-    def permission_scope
+    def self.permission_scope
+      # TODO: update
       return %w(
         playlist-read-private
         user-read-private

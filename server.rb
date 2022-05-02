@@ -9,6 +9,7 @@ require_relative "./db"
 module SonosPartyMode
   class Server < Sinatra::Base
     enable :sessions
+    set :bind, '0.0.0.0'
 
     def initialize
       super
@@ -116,6 +117,7 @@ module SonosPartyMode
 
       # Generate a QR code for the invite URL
       @qr_code = RQRCode::QRCode.new(@party_join_link)
+      binding.pry
 
       erb :party
     end
@@ -231,9 +233,9 @@ module SonosPartyMode
 
       # Now process the Sonos login
       authorization_code = params.fetch(:code)
-      new_sonos = SonosPartyMode::Sonos.new(user_id: user_id)
-      new_sonos.new_auth!(
-        authorization_code: authorization_code,
+      new_sonos = SonosPartyMode::Sonos.new(
+        user_id: user_id,
+        authorization_code: authorization_code
       )
       sonos_instances[user_id] = new_sonos
 
@@ -309,7 +311,10 @@ module SonosPartyMode
         session[:state_key] = nil
 
         new_spotify = SonosPartyMode::Spotify.new(user_id: session[:user_id])
-        new_spotify.new_auth!(authorization_code: authorization_code)
+        new_spotify.new_auth!(
+          authorization_code: params[:code],
+          redirect_uri: SPOTIFY_REDIRECT_URI
+        )
         spotify_instances[session[:user_id]] = new_spotify
       end
       redirect "/"

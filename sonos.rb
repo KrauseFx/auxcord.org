@@ -1,6 +1,5 @@
 require "excon"
 require "json"
-require "pry"
 require_relative "./db"
 
 module SonosPartyMode
@@ -18,15 +17,22 @@ module SonosPartyMode
     # Session specific settings
     attr_accessor :target_volume
 
-    def initialize(user_id:)
+    # Optionally pass in `authorization_code` if this is the first time
+    # the account is being used, this will store the token in the database
+    def initialize(user_id:, authorization_code: nil)
       @user_id = user_id
-      @target_volume = database_row[:volume]
+      self.new_auth!(authorization_code: authorization_code) if authorization_code
+
+      return nil if database_row.nil? # this is the case if a user didn't finish onboarding
+
+      @target_volume = database_row[:volume] # default volume is defined as part of `db.rb`
       @group_to_use = database_row[:group]
       groups_cached = self.groups
       unless groups_cached.collect { |a| a["id"] }.include?(@group_to_use)
         # The group ID doesn't exist any more, fallback to the default one (most speakers)
         @group_to_use = groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
       end
+
       @party_session_active = false
       @currently_playing_guest_wished_song = false
 
