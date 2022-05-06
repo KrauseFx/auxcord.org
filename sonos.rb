@@ -158,11 +158,6 @@ module SonosPartyMode
       )
     end
 
-    # Basic info about the media currently playing
-    def metadata_status
-      client_control_request("groups/#{group_to_use}/playbackMetadata")
-    end
-
     # ----------------
     # Under the hood
     # ----------------
