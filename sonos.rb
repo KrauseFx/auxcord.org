@@ -31,17 +31,39 @@ module SonosPartyMode
       unless groups_cached.collect { |a| a["id"] }.include?(@group_to_use)
         # The group ID doesn't exist any more, fallback to the default one (most speakers)
         @group_to_use = groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
+        # Also store the resulting group in the database
+        Db.sonos_tokens.where(user_id: user_id).update(group: @group_to_use) # important to use full query
       end
 
       @party_session_active = false
       @currently_playing_guest_wished_song = false
 
       self.subscribe_to_playback
+      self.subscribe_to_playback_metadata
     end
 
 
+    # TODO: resubscribe when group was changed
+    # TODO: unsuscribe on server shutdown etc
     def subscribe_to_playback
       client_control_request("/groups/#{group_to_use}/playback/subscription", method: :post)
+    end
+    
+    # TODO: resubscribe when group was changed
+    # TODO: unsuscribe on server shutdown etc
+    def subscribe_to_playback_metadata
+      client_control_request("/groups/#{group_to_use}/playbackMetadata/subscription", method: :post)
+    end
+
+    def did_receive_new_playback_metadata(info)
+      # See example output at the very bottom of this file
+      @_playback_metadata = info
+    end
+
+    def playback_metadata
+      return @_playback_metadata if @_playback_metadata # this is cached from the Sonos subscription
+      # fallback, in case we didn't get a Sonos message yet. I confirmed it's the exact same data
+      return client_control_request("groups/#{group_to_use}/playbackMetadata")
     end
 
     def ensure_playlist_in_favorites(spotify_playlist_id)
@@ -242,3 +264,128 @@ module SonosPartyMode
     end
   end
 end
+
+# {
+#   "container": {
+#     "name": "Work",
+#     "type": "track",
+#     "id": {
+#       "serviceId": "12",
+#       "objectId": "spotify:track:3KliPMvk1EvFZu9cvkj8p1",
+#       "accountId": "sn_1"
+#     },
+#     "service": {
+#       "name": "Spotify",
+#       "id": "12",
+#       "images": [
+#       ]
+#     },
+#     "imageUrl": "https://i.scdn.co/image/ab67616d0000b2733c9f7b8faf039c7607d12255",
+#     "images": [
+#       {
+#         "url": "https://i.scdn.co/image/ab67616d0000b2733c9f7b8faf039c7607d12255",
+#         "height": 0,
+#         "width": 0
+#       }
+#     ],
+#     "tags": [
+#       "TAG_EXPLICIT"
+#     ],
+#     "explicit": true
+#   },
+#   "currentItem": {
+#     "track": {
+#       "type": "track",
+#       "name": "Work",
+#       "imageUrl": "http://192.168.0.168:1400/getaa?s=1&u=x-sonos-spotify%3aspotify%253atrack%253a3KliPMvk1EvFZu9cvkj8p1%3fsid%3d12%26flags%3d8232%26sn%3d1",
+#       "images": [
+#         {
+#           "url": "http://192.168.0.168:1400/getaa?s=1&u=x-sonos-spotify%3aspotify%253atrack%253a3KliPMvk1EvFZu9cvkj8p1%3fsid%3d12%26flags%3d8232%26sn%3d1",
+#           "height": 0,
+#           "width": 0
+#         }
+#       ],
+#       "album": {
+#         "name": "Britney Jean (Deluxe Version)",
+#         "explicit": false
+#       },
+#       "artist": {
+#         "name": "Britney Spears",
+#         "explicit": false
+#       },
+#       "id": {
+#         "serviceId": "12",
+#         "objectId": "spotify:track:3KliPMvk1EvFZu9cvkj8p1",
+#         "accountId": "sn_1"
+#       },
+#       "service": {
+#         "name": "Spotify",
+#         "id": "12",
+#         "images": [
+#         ]
+#       },
+#       "durationMillis": 247000,
+#       "tags": [
+#         "TAG_EXPLICIT"
+#       ],
+#       "explicit": true,
+#       "advertisement": false,
+#       "quality": {
+#         "bitDepth": 0,
+#         "sampleRate": 0,
+#         "lossless": false,
+#         "immersive": false
+#       }
+#     },
+#     "deleted": false,
+#     "policies": {
+#       ...
+#     }
+#   },
+#   "nextItem": {
+#     "track": {
+#       "type": "track",
+#       "name": "Inner Tale",
+#       "imageUrl": "http://192.168.0.168:1400/getaa?s=1&u=x-sonos-spotify%3aspotify%253atrack%253a4aAPW97U3nrnELAknGdV2L%3fsid%3d12%26flags%3d8232%26sn%3d1",
+#       "images": [
+#         {
+#           "url": "http://192.168.0.168:1400/getaa?s=1&u=x-sonos-spotify%3aspotify%253atrack%253a4aAPW97U3nrnELAknGdV2L%3fsid%3d12%26flags%3d8232%26sn%3d1",
+#           "height": 0,
+#           "width": 0
+#         }
+#       ],
+#       "album": {
+#         "name": "Orchestra",
+#         "explicit": false
+#       },
+#       "artist": {
+#         "name": "Worakls",
+#         "explicit": false
+#       },
+#       "id": {
+#         "serviceId": "12",
+#         "objectId": "spotify:track:4aAPW97U3nrnELAknGdV2L",
+#         "accountId": "sn_1"
+#       },
+#       "service": {
+#         "name": "Spotify",
+#         "id": "12",
+#         "images": [
+#         ]
+#       },
+#       "durationMillis": 259000,
+#       "explicit": false,
+#       "advertisement": false,
+#       "quality": {
+#         "bitDepth": 0,
+#         "sampleRate": 0,
+#         "lossless": false,
+#         "immersive": false
+#       }
+#     },
+#     "deleted": false,
+#     "policies": {
+#       ...
+#     }
+#   }
+# }

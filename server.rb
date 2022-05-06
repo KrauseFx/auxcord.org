@@ -1,6 +1,7 @@
 require "sinatra/base"
+require "sinatra/reloader" # TODO: Remove
 require "better_errors" # TODO: Remove
-require "pry" # TODO: remove
+require "pry" # TODO: Remove
 require "rspotify"
 require "rqrcode"
 require_relative "./sonos"
@@ -19,6 +20,7 @@ module SonosPartyMode
 
     # Development mode
     configure :development do
+      register Sinatra::Reloader
       use BetterErrors::Middleware
       BetterErrors.application_root = __dir__
     end
@@ -99,6 +101,8 @@ module SonosPartyMode
       end
 
       spotify_instance = spotify_instances[session[:user_id]]
+      sonos_instance = sonos_instances[session[:user_id]]
+
       spotify_playlist = spotify_instance.party_playlist
       spotify_playlist_id = spotify_playlist.id
 
@@ -269,7 +273,7 @@ module SonosPartyMode
       redirect "/"
     end
 
-    # Sonos callback information
+    # Sonos callback information (ping, hook)
     post "/callback" do
       info = JSON.parse(request.body.read)
       sonos_group_id = request.env.fetch("HTTP_X_SONOS_TARGET_VALUE")
@@ -277,53 +281,73 @@ module SonosPartyMode
 
       # Find the matching sonos session to use
       sonos_instance = sonos_instances.values.find { |a| a.group_to_use == sonos_group_id }
-      return if sonos_instance.nil?
+      return if sonos_instance.nil? # not a Sonos system we actively manage (any more)
 
       spotify_instance = spotify_instances[sonos_instance.user_id]
+      return if spotify_instance.nil? # not yet fully connected
 
-      if !["PLAYBACK_STATE_PLAYING", "PLAYBACK_STATE_BUFFERING"].include?(info.fetch("playbackState"))
-        puts "user paused the group..."
-        sonos_instance.play_music! if sonos_instance.party_session_active
+      puts "\n\n"
+      puts JSON.pretty_generate(info)
+      puts "\n\n"
+
+      if info["playbackState"]
+        if !["PLAYBACK_STATE_PLAYING", "PLAYBACK_STATE_BUFFERING"].include?(info.fetch("playbackState"))
+          puts "user paused the group..."
+          sonos_instance.play_music! if sonos_instance.party_session_active
+        end
       end
+      
+      if info["itemId"]
+        if sonos_instance.current_item_id != info.fetch("itemId") && 
+          sonos_instance.current_item_id == info.fetch("previousItemId")
 
-      if sonos_instance.current_item_id != info.fetch("itemId") && 
-        sonos_instance.current_item_id == info.fetch("previousItemId")
+          # Set it immediately, as the Sonos web requests do take some time to complete
+          sonos_instance.current_item_id = info.fetch("itemId") # always set it
 
-        # Set it immediately, as the Sonos web requests do take some time to complete
-        sonos_instance.current_item_id = info.fetch("itemId") # always set it
+          # This means, the user has skipped to the next song, or the song has finished playing
+          # we use this to do proper queueing of upcoming songs
 
-        # This means, the user has skipped to the next song, or the song has finished playing
-        # we use this to do proper queueing of upcoming songs
+          # We queue the next song (after this one's finished)
+          if spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+            sonos_instance.currently_playing_guest_wished_song = true
+          else
+            sonos_instance.currently_playing_guest_wished_song = false
+          end
 
-        # We queue the next song (after this one's finished)
-        if spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
-          sonos_instance.currently_playing_guest_wished_song = true
-        else
-          sonos_instance.currently_playing_guest_wished_song = false
+          sonos_instance.current_item_id = info.fetch("itemId")
         end
 
-        sonos_instance.current_item_id = info.fetch("itemId")
+        sonos_instance.current_item_id = info.fetch("itemId") # always set it
+        # => {"playbackState"=>"PLAYBACK_STATE_PLAYING",
+        #   "isDucking"=>false,
+        #   "itemId"=>"3d6iqwIjxdilDioPqbhU4cJPTGs=",
+        #   "positionMillis"=>14,
+        #   "previousItemId"=>"FwZvKUVmIj3zb3OsjfPQjF8BWsg=",
+        #   "previousPositionMillis"=>60368,
+        #   "playModes"=>{"repeat"=>false, "repeatOne"=>false, "shuffle"=>false, "crossfade"=>false},
+        #   "availablePlaybackActions"=>
+        #    {"canSkip"=>true,
+        #     "canSkipBack"=>true,
+        #     "canSeek"=>true,
+        #     "canPause"=>true,
+        #     "canStop"=>true,
+        #     "canRepeat"=>true,
+        #     "canRepeatOne"=>true,
+        #     "canCrossfade"=>true,
+        #     "canShuffle"=>true}}
       end
 
-      sonos_instance.current_item_id = info.fetch("itemId") # always set it
+      if info["container"]
+        sonos_instance.did_receive_new_playback_metadata(info)
 
-      # => {"playbackState"=>"PLAYBACK_STATE_PLAYING",
-      #   "isDucking"=>false,
-      #   "itemId"=>"3d6iqwIjxdilDioPqbhU4cJPTGs=",
-      #   "positionMillis"=>14,
-      #   "previousItemId"=>"FwZvKUVmIj3zb3OsjfPQjF8BWsg=",
-      #   "previousPositionMillis"=>60368,
-      #   "playModes"=>{"repeat"=>false, "repeatOne"=>false, "shuffle"=>false, "crossfade"=>false},
-      #   "availablePlaybackActions"=>
-      #    {"canSkip"=>true,
-      #     "canSkipBack"=>true,
-      #     "canSeek"=>true,
-      #     "canPause"=>true,
-      #     "canStop"=>true,
-      #     "canRepeat"=>true,
-      #     "canRepeatOne"=>true,
-      #     "canCrossfade"=>true,
-      #     "canShuffle"=>true}}
+        # Pre-load the song's information from Spotify to get the album cover and other details
+        # which is used by the party host's dashboard, reducing the load time from 5s to 0.5s
+        current_spotify_object_id = info["currentItem"]["track"]["id"]["objectId"]
+        current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
+
+        next_spotify_object_id = info["nextItem"]["track"]["id"]["objectId"]
+        next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
+      end
     end
 
     # -----------------------

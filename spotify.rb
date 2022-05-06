@@ -56,6 +56,14 @@ module SonosPartyMode
       return RSpotify::Track.search(name)
     end
 
+    # Search for a specific Spotify song using the Spotify ID, including a local cache
+    def find_song(song_id)
+      song_id.gsub!("spotify:track:", "")
+      @_song_cache ||= {}
+      return @_song_cache[song_id] if @_song_cache[song_id]
+      @_song_cache[song_id] = RSpotify::Track.find(song_id)
+    end
+
     # This method will add songs to the queue (playlist) on Spotify, but not yet add it to the Sonos queue
     def add_song_to_queue(song)
       # Verify we haven't queued this song before # TODO
@@ -70,7 +78,7 @@ module SonosPartyMode
 
       next_song = queued_songs.shift
       if next_song.nil?
-        puts "No more songs in queue..."
+        puts "No more Jukebox songs in queue..."
         return false
       end
       self.past_songs << next_song
