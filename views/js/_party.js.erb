@@ -46,4 +46,11 @@
     xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     xhttp.send(params);
   }
+
+  var groupsButton = document.getElementById("groups-button");
+  let groupsVisible = false;
+  groupsButton.onclick = function() {
+    groupsVisible = !groupsVisible;
+    document.getElementById("groups-div").style.display = groupsVisible ? "block" : "none";
+  }
 </script>

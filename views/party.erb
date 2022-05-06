@@ -45,6 +45,18 @@
     %>
   </div>
   <p id="party-join-link"><a href="<%= @party_join_link %>"><%= @party_join_link %></a></p>
+  <button id="groups-button">
+    <%= erb :"svgs/_button-groups.svg", layout: false %>
+  </button>
+</div>
+
+<div id="groups-div">
+  <% @groups.each do |group| %>
+    <label class="container"><%= group[:name] %> (<%= group[:number_of_speakers] %> <%= group[:number_of_speakers] == 1 ? "speaker" : "speakers" %>)
+      <input value="<%= group[:id] %>" type="radio" name="group" onclick="updateGroup()" <%= @selected_group == group[:id] ? 'checked="checked"' : '' %>>
+      <span class="checkmark"></span>
+    </label>
+  <% end %>
 </div>
 
 <div id="footer">
