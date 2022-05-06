@@ -50,6 +50,14 @@ module SonosPartyMode
           sleep(2)
         end
       end
+      Thread.new do
+        loop do
+          sonos_instances.each do |user_id, sonos|
+            sonos.refresh_caches
+          end
+          sleep(15)
+        end
+      end
     end
 
     # -----------------------
@@ -106,37 +114,48 @@ module SonosPartyMode
       spotify_playlist = spotify_instance.party_playlist
       spotify_playlist_id = spotify_playlist.id
 
-      sonos = sonos_instances[session[:user_id]]
-      playlist = sonos.ensure_playlist_in_favorites(spotify_playlist_id)
+      playback_metadata = sonos_instance.playback_metadata
+      current_spotify_object_id = playback_metadata["currentItem"]["track"]["id"]["objectId"]
+      current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
+      @current_image_url = current_spotify_track.album.images[1]["url"]
 
-      if playlist.nil?
-        # User doesn't have the Spotify playlist in their favorites
+      next_spotify_object_id = playback_metadata["nextItem"]["track"]["id"]["objectId"]
+      next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
+      @next_image_url = next_spotify_track.album.images[1]["url"]
+
+      sonos_instance_playlist = sonos_instance.ensure_playlist_in_favorites(spotify_playlist_id, force_refresh: params["submitted"].to_s == "true")
+      if sonos_instance_playlist.nil?
+        # User doesn't have the Spotify playlist in their favorites, show them the onboarding instructions
         @spotify_playlist_name = spotify_playlist.name
-        @already_submitted = params.fetch("submitted").to_s == "true"
-        return erb :add_playlist_to_favs        
+        @already_submitted = params["submitted"].to_s == "true"
+        spotify_instance.prepare_welcome_playlist_song!(spotify_playlist)
+        return erb :add_playlist_to_favs
       end
 
-      # Prepare all the variables needed
-      @party_join_link = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
-      @volume = sonos.database_row.fetch(:volume)
-      @party_on = sonos.party_session_active      
+      # Generate the invite URL
+      host = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "")
+      @party_join_link = host + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
+
+      # Prepare all other variables needed to render the host dashboard
+      @volume = sonos_instance.database_row.fetch(:volume)
+      @party_on = sonos_instance.party_session_active
 
       @queued_songs = spotify_instance.queued_songs
       # Manually prefix the most recently queued song, as it's already in the Sonos queue
       @queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count > 0
 
-      @groups = sonos.groups.collect do |group|
+      sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
+      @groups = sonos_groups.collect do |group|
         {
           name: group.fetch("name"),
           id: group.fetch("id"),
           number_of_speakers: group.fetch("playerIds").count
         }
       end.sort_by { |group| group[:number_of_speakers] }.reverse
-      @selected_group = sonos.group_to_use
+      @selected_group = sonos_instance.group_to_use
 
       # Generate a QR code for the invite URL
       @qr_code = RQRCode::QRCode.new(@party_join_link)
-      binding.pry
 
       erb :party
     end

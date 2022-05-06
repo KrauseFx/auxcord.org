@@ -17,6 +17,10 @@ module SonosPartyMode
     # Session specific settings
     attr_accessor :target_volume
 
+    # Caches
+    attr_accessor :groups_cached
+    attr_accessor :favorites_cached
+
     # Optionally pass in `authorization_code` if this is the first time
     # the account is being used, this will store the token in the database
     def initialize(user_id:, authorization_code: nil)
@@ -27,10 +31,10 @@ module SonosPartyMode
 
       @target_volume = database_row[:volume] # default volume is defined as part of `db.rb`
       @group_to_use = database_row[:group]
-      groups_cached = self.groups
-      unless groups_cached.collect { |a| a["id"] }.include?(@group_to_use)
+      _groups_cached = self.groups
+      unless _groups_cached.collect { |a| a["id"] }.include?(@group_to_use)
         # The group ID doesn't exist any more, fallback to the default one (most speakers)
-        @group_to_use = groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
+        @group_to_use = _groups_cached.sort_by { |a| a["playerIds"].count }.reverse.first.fetch("id")
         # Also store the resulting group in the database
         Db.sonos_tokens.where(user_id: user_id).update(group: @group_to_use) # important to use full query
       end
@@ -66,15 +70,14 @@ module SonosPartyMode
       return client_control_request("groups/#{group_to_use}/playbackMetadata")
     end
 
-    def ensure_playlist_in_favorites(spotify_playlist_id)
-      favs = client_control_request("/households/#{primary_household}/favorites")
-      matched = favs.fetch("items").find do |fav|
+    def ensure_playlist_in_favorites(spotify_playlist_id, force_refresh: true)
+      favs = favorites_cached unless force_refresh
+      favs ||= client_control_request("/households/#{primary_household}/favorites")
+      return favs.fetch("items").find do |fav|
         fav["service"]["name"] == "Spotify" &&
           fav["resource"]["type"] == "PLAYLIST" &&
           fav["resource"]["id"]["objectId"].include?(spotify_playlist_id)
       end
-
-      return matched
     end
 
     def ensure_current_sonos_settings!
@@ -83,6 +86,12 @@ module SonosPartyMode
       self.ensure_volume!(self.target_volume)
       self.ensure_music_playing!
       self.unmute_speakers!
+    end
+
+    # Called every ~15s
+    def refresh_caches
+      self.groups_cached = self.groups
+      self.favorites_cached = client_control_request("/households/#{primary_household}/favorites")
     end
 
     def playback_status
