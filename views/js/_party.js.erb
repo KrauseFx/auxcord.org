@@ -36,7 +36,11 @@
     slider.value = parseInt(slider.value) - 5;
     slider.onchange();
   }
+  let didSendSkipRequest = false;
   function skipSong() {
+    document.getElementById("next-song-button").style.backgroundColor = "#a9a9a9";
+    if (didSendSkipRequest) { return; }
+    didSendSkipRequest = true;
     sendRequest("skip_song=true");
   }
 
@@ -57,5 +61,5 @@
   setInterval(function() {
     // Refresh the current page, to be sure to have the most recent data
     location.reload();
-  }, 5000)
+  }, 2000)
 </script>
