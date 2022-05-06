@@ -1,0 +1,65 @@
+<script type="text/javascript">
+  function refreshAutocomplete() {
+    console.log("Sending auto-complete request")
+    let ids = window.location.pathname.replace("/party/join/", "")
+    var song = document.getElementById('song-input').value;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/spotify/search/' + ids + '?song_name=' + song, true);
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        var response = JSON.parse(xhr.responseText);
+        var html = '';
+        for (var i = 0; i < response.length; i++) {
+          html += '<li class="autocomplete-entry" onclick="queueSong(\'' + response[i].id + '\')">'
+          html += '<img src="' + response[i].thumbnail + '" class="autocomplete-image" />'
+          html += '<span class="autocomplete-label">' + response[i].name + '</span>'
+          html += '<span class="autocomplete-artist">' + response[i].artists.join(", ") + '</span>'
+          html += '</li>';
+        }
+        document.getElementById('song-list').innerHTML = html;
+      }
+    };
+    xhr.send();
+  }
+  const processChange = debounce(() => refreshAutocomplete());
+
+  function queueSong(songId) {
+    document.getElementById("loading-div").style.display = "block";
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', window.location.pathname + "/" + songId, true);
+    xhr.onload = function() {
+      document.getElementById("loading-div").style.display = "none"
+
+      if (xhr.status === 200) {
+        var response = JSON.parse(xhr.responseText);
+        if (response.success) {
+          let songsText = response.position == 1 ? "song" : "songs";
+          let prefix = response.position == 1 ? "is" : "are"
+          let text = "Successfully queued your song, there " + prefix + " " + response.position + " " + songsText + " before yours"
+          if (response.position == 0) {
+            text = "Successfully queued your song, it will be played next"
+          }
+          alert(text);
+          document.getElementById('song-input').value = '';
+          document.getElementById('song-list').innerHTML = ""
+        } else {
+          alert("Something went wrong queuing this song")
+        }
+      } else {
+        alert("Something went wrong queuing this song")
+      }
+    };
+    xhr.send();
+  }
+
+  function debounce(func, timeout = 500){
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { func.apply(this, args); }, timeout);
+    };
+  }
+
+  // On every key stroke, send a request to the server
+  document.getElementById('song-input').addEventListener('keyup', processChange);
+</script>

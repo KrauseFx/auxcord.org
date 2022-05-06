@@ -1,0 +1,75 @@
+
+<style type="text/css">
+  #loading-div {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.93);
+    z-index: 100;
+    text-align: center;
+    padding-top: 30px;
+    /* display: none; */
+  }
+  #loading-div > h3 {
+    color: white;
+    font-size: 50px;
+    margin-bottom: 5px;
+  }
+  #song-input {
+    width: 100%;
+    height: 50px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 5px; 
+    font-size: 30px;
+  }
+  #song-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #fff;
+    z-index: 1;
+  }
+  #song-list > .autocomplete-entry {
+    padding: 0px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    white-space: nowrap;
+  }
+  /* Desktop screens */
+  @media only screen and (min-width: 768px) {
+    #song-list {
+      margin: 20px;
+      padding: 30px;
+    }
+  }
+
+  .autocomplete-label {
+    font-size: 18px;
+    position: relative;
+    top: -15px;
+    white-space: nowrap ;
+  }
+  .autocomplete-entry:hover {
+    background-color: #eee;
+  }
+  .autocomplete-image {
+    width: 50px;
+    height: 50px;
+    border-radius: 5px;
+    margin-right: 10px;
+  }
+  .autocomplete-artist {
+    font-size: 16px;
+    position: relative;
+    top: -15px;
+    color: #999;
+    margin-left: 15px;
+  }
+  .footnote {
+    font-size: 18px;
+    color: #AAA;
+  }
+</style>
