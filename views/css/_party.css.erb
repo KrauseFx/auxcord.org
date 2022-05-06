@@ -1,0 +1,113 @@
+<style type="text/css">
+  #jukebox-outline {
+    width: 400px;
+    height: 800px;
+    max-width: 100%;
+    background-color: #a7644a;
+    border-top-left-radius: 200px;
+    border-top-right-radius: 200px;
+  }
+  #currently-playing {
+    width: 40%;
+    margin-left: 120px;
+    margin-top: 60px;
+  }
+  #playing-next {
+    width: 20%;
+    margin-left: 250px;
+    margin-top: -120px;
+  }
+  #media-controls {
+    width: 100%;
+    height: 100px;
+    margin-top: -60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #pause-play-button {
+    width: 74px;
+    height: 74px;
+    border-radius: 37px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    cursor: pointer;
+    margin-top: 100px;
+  }
+  #next-song-button {
+    width: 46px;
+    height: 46px;
+    border-radius: 23px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    cursor: pointer;
+    margin-top: 100px;
+    margin-left: 30px;
+  }
+  #empty-control {
+    width: 46px;
+    height: 46px;
+    margin-top: 100px;
+    margin-left: 30px;
+  }
+  #queue {
+    overflow-y: scroll;
+    width: 100%;
+    height: 250px;
+    margin-top: 50px;
+    background-color: rgba(255, 255, 255, 0.5);
+    padding: 5px;
+  }
+  #queue-list {
+    list-style: none;
+    padding-left: 0px;
+  }
+  .queue-entry {
+    display: flex;
+    margin-bottom: 10px;
+  }
+  .queue-entry > span {
+    margin-left: 10px;
+    height: 30px;
+    white-space: nowrap;
+    margin-top: 20px;
+    max-width: calc(100% - 90px);
+    overflow: hidden;
+  }
+  #footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 100px;
+    background-color: #ccc;
+  }
+  #party-join-link {
+    font-size: 10px;
+    text-align: center;
+  }
+  #party-join-link > a {
+    color: #ddd;
+  }
+  #qr-code {
+    text-align: center;
+    margin-top: 40px;
+  }
+  #volume-container {
+    position: absolute;
+    transform: rotate(-90deg);
+    left: 240px;
+    top: 380px;
+    width: 400px;
+  }
+  #volume-container > button {
+    border: none;
+    text-decoration: none;
+    display: inline-block;
+    background-color: rgba(200, 180, 130, 0.95);
+    border-radius: 15px;
+    width: 40px;
+    height: 40px;
+    color: white;
+    cursor: pointer;
+  }
+</style>

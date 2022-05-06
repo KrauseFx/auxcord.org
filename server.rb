@@ -140,7 +140,7 @@ module SonosPartyMode
       @volume = sonos_instance.database_row.fetch(:volume)
       @party_on = sonos_instance.party_session_active
 
-      @queued_songs = spotify_instance.queued_songs
+      @queued_songs = spotify_instance.queued_songs.dup # `.dup` to not modify the actual queue
       # Manually prefix the most recently queued song, as it's already in the Sonos queue
       @queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count > 0
 
@@ -305,7 +305,7 @@ module SonosPartyMode
       spotify_instance = spotify_instances[sonos_instance.user_id]
       return if spotify_instance.nil? # not yet fully connected
 
-      puts "\n\n"
+      puts "\n\nSonos Notification\n\n"
       puts JSON.pretty_generate(info)
       puts "\n\n"
 

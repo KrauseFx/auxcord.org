@@ -1,112 +1,55 @@
-<h3>Jukebox for Sonos - Party Host</h3>
+<div id="jukebox-outline">
+  <div id="volume-container">
+    <button onclick="volumeDown()">
+      <%= erb :"svgs/_button-arrow-left.svg", layout: false %>
+    </button>
+    <input type="range" min="0" max="100" value="<%= @volume %>" class="slider" id="volume-slider">
+    <span id="volume-label"><%= @volume %></span>
+    <button onclick="volumeUp()">
+      <%= erb :"svgs/_button-arrow-right.svg", layout: false %>
+    </button>
+  </div>
+  
 
-<h4>Generated URL</h4>
-<p><a href="<%= @party_join_link %>"><%= @party_join_link %></a></p>
-<%= @qr_code.as_svg(
-  color: "000",
-  shape_rendering: "crispEdges",
-  module_size: 4,
-  standalone: true,
-  use_path: true,
-)
-%>
+  <img id="currently-playing" src="<%= @current_image_url %>">
+  <img id="playing-next" src="<%= @next_image_url %>">
+  <div id="media-controls">
+    <div id="empty-control"></div>
+    <button id="pause-play-button">
+      <span id="svg-play"><%= erb :"svgs/_button-play.svg", layout: false %></span>
+      <span id="svg-pause"><%= erb :"svgs/_button-pause.svg", layout: false %></span>
+    </button>
+    <button id="next-song-button" onclick="skipSong()">
+      <%= erb :"svgs/_button-skip.svg", layout: false %>
+    </button>
+  </div>
+  <div id="queue">
+    <ul id="queue-list">
+      <% @queued_songs.each do |song| %>
+        <li class="queue-entry">
+          <img src="<%= song.album.images.last["url"] %>" class="queue-image" />
+          <span><%= song.name %> - <%= song.artists.collect { |a| a.name }.join(", ") %></span>
+        </li>
+      <% end %>
+    </ul>
+  </div>
 
-<h4>Song Queue</h4>
-
-<ol>
-  <% @queued_songs.each do |song| %>
-    <li><%= song.name %></li>
-  <% end %>
-</ol>
-
-<h4>Manage Party</h4>
-
-<button class="button button3" onclick="skipSong()">Skip song</button>
-
-<h5>Volume Control</h5>
-
-<button class="button button3" onclick="volumeDown()">Volume Down</button>
-<button class="button button3" onclick="volumeUp()">Volume Up</button>
-
-<div class="slidecontainer">
-  <input type="range" min="0" max="100" value="<%= @volume %>" class="slider" id="volume-slider">
-  <span id="volume-label"><%= @volume %></span>
+  <div id="qr-code">
+    <%= @qr_code.as_svg(
+      color: "000",
+      shape_rendering: "crispEdges",
+      module_size: 4,
+      standalone: true,
+      use_path: true
+    )
+    %>
+  </div>
+  <p id="party-join-link"><a href="<%= @party_join_link %>"><%= @party_join_link %></a></p>
 </div>
 
-<h5>Groups</h5>
-<div id="groupsDiv">
-  <% @groups.each do |group| %>
-    <label class="container"><%= group[:name] %> (<%= group[:number_of_speakers] %> <%= group[:number_of_speakers] == 1 ? "speaker" : "speakers" %>)
-      <input value="<%= group[:id] %>" type="radio" name="group" onclick="updateGroup()" <%= @selected_group == group[:id] ? 'checked="checked"' : '' %>>
-      <span class="checkmark"></span>
-    </label>
-  <% end %>
+<div id="footer">
+  <a href="/logout">Logout & Remove all Login tokens</a>
 </div>
 
-<h5>End this party</h5>
-
-Ready to head out for the night? Stop the party<br /><br />
-
-<label class="switch">
-  <input type="checkbox" id="party-toggle" <%= @party_on ? 'checked="checked"' : '' %>%>
-  <span class="switch-slider round"></span>
-</label>
-
-<script type="text/javascript">
-  // Send the updated volume slider value to the server
-  var slider = document.getElementById("volume-slider");
-  slider.onchange = function() {
-    document.getElementById("volume-label").innerHTML = slider.value;
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("POST", "/party/host/update", true);
-    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    xhttp.send("volume=" + slider.value);
-  }
-
-  var partyToggle = document.getElementById("party-toggle");
-  partyToggle.onchange = function() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("POST", "/party/host/update", true);
-    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    xhttp.send("party_toggle=" + partyToggle.checked);
-  }
-
-  function updateGroup() {
-    // Get the currently selected group
-    var groupToUse = document.querySelector('input[name="group"]:checked').value;
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("POST", "/party/host/update", true);
-    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    xhttp.send("group_to_use=" + groupToUse);
-  }
-  function volumeUp() {
-    var slider = document.getElementById("volume-slider");
-    slider.value = parseInt(slider.value) + 5;
-    slider.onchange();
-  }
-  function volumeDown() {
-    var slider = document.getElementById("volume-slider");
-    slider.value = parseInt(slider.value) - 5;
-    slider.onchange();
-  }
-  function skipSong() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.open("POST", "/party/host/update", true);
-    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    xhttp.send("skip_song=true");
-  }
-</script>
-
-<style type="text/css">
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  }
-  #volume-slider {
-    width: 300px;
-    margin: 20px;
-  }
-  #volume-label {
-    font-weight: bold;
-    font-size: 20px;
-  }
-</style>
+<%= erb :"js/_party.js", layout: false %>
+<%= erb :"css/_party.css", layout: false %>

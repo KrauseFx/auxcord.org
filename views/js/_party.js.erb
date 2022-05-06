@@ -1,0 +1,49 @@
+<script type="text/javascript">
+  let partyOn = <%= @party_on %>;
+  // Initial UI preparations
+  document.getElementById(partyOn ? 'svg-play' : 'svg-pause').style.display = "none";
+
+  // Send the updated volume slider value to the server
+  var slider = document.getElementById("volume-slider");
+  slider.onchange = function() {
+    document.getElementById("volume-label").innerHTML = slider.value;
+    sendRequest("volume=" + slider.value);
+  }
+
+  var pausePlayButton = document.getElementById("pause-play-button");
+  pausePlayButton.onclick = function() {
+    partyOn = !partyOn;
+
+    // Update the pause/play button
+    document.getElementById(partyOn ? 'svg-pause' : 'svg-play').style.display = "block";
+    document.getElementById(partyOn ? 'svg-play' : 'svg-pause').style.display = "none";
+
+    sendRequest("party_toggle=" + partyOn);
+  }
+
+  function updateGroup() {
+    // Get the currently selected group
+    var groupToUse = document.querySelector('input[name="group"]:checked').value;
+    sendRequest("group_to_use=" + groupToUse);
+  }
+  function volumeUp() {
+    var slider = document.getElementById("volume-slider");
+    slider.value = parseInt(slider.value) + 5;
+    slider.onchange();
+  }
+  function volumeDown() {
+    var slider = document.getElementById("volume-slider");
+    slider.value = parseInt(slider.value) - 5;
+    slider.onchange();
+  }
+  function skipSong() {
+    sendRequest("skip_song=true");
+  }
+
+  function sendRequest(params) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("POST", "/party/host/update", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send(params);
+  }
+</script>
