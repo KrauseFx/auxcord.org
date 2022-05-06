@@ -108,13 +108,9 @@ module SonosPartyMode
     end
 
     def self.permission_scope
-      # TODO: update
       return %w(
         playlist-read-private
-        user-read-private
-        user-read-email
         playlist-modify-public
-        user-library-read
         user-library-modify
       ).join(' ')
     end
