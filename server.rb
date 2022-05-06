@@ -141,8 +141,11 @@ module SonosPartyMode
       @party_on = sonos_instance.party_session_active
 
       @queued_songs = spotify_instance.queued_songs.dup # `.dup` to not modify the actual queue
+
       # Manually prefix the most recently queued song, as it's already in the Sonos queue
-      @queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count > 0
+      if spotify_instance.past_songs.count > 0 && sonos_instance.currently_playing_guest_wished_song
+        @queued_songs.unshift(spotify_instance.past_songs.last)
+      end
 
       sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
       @groups = sonos_groups.collect do |group|
