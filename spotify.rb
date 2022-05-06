@@ -10,55 +10,24 @@ module SonosPartyMode
     attr_accessor :queued_songs
     attr_accessor :past_songs
 
-    def initialize(user_id:)
+    def initialize(user_id:, authorization_code: nil, redirect_uri: nil)
       self.user_id = user_id
+      if authorization_code
+        self.new_auth!(authorization_code: authorization_code, redirect_uri: redirect_uri)
+      end
+
+      return nil if database_row.nil? # this is the case if a user didn't finish onboarding
+
       self.queued_songs = []
       self.past_songs = []
     end
 
-    def new_auth!(authorization_code:, redirect_uri:)
-      auth_string = Base64.strict_encode64(ENV['SPOTIFY_CLIENT_ID'] + ':' + ENV['SPOTIFY_CLIENT_SECRET'])
-      auth_response = Excon.post(
-        'https://accounts.spotify.com/api/token',
-          body: URI.encode_www_form({
-            'grant_type' => 'authorization_code',
-            'redirect_uri' => redirect_uri,
-            'code' => authorization_code,
-          }),
-          headers: {
-            'Authorization' => "Basic #{auth_string}",
-            "Content-Type" => "application/x-www-form-urlencoded",
-          }
-      )
-      parsed_credentials = JSON.parse(auth_response.body)
-
-      # Manually re-name key, via https://github.com/guilhermesad/rspotify/issues/90#issuecomment-519603961
-      parsed_credentials["token"] = parsed_credentials["access_token"]
-
-      info_response = Excon.get('https://api.spotify.com/v1/me',
-        headers: {
-          'Authorization' => "Bearer #{parsed_credentials.fetch("access_token")}"
-        }
-      )
-      info_parsed = JSON.parse(info_response.body)
-
-      options = {
-        'credentials' => parsed_credentials,
-        'info' => info_parsed
-      }
-      user = RSpotify::User.new(options)
-      Db.spotify_tokens.insert(
-        user_id: user_id,
-        options: JSON.pretty_generate(options.to_hash)
-      )
-    end
-
     def spotify_user
-      return nil if spotify_user_row.nil?
-      RSpotify::User.new(JSON.parse(spotify_user_row.fetch(:options)))
+      return nil if database_row.nil?
+      RSpotify::User.new(JSON.parse(database_row.fetch(:options)))
     end
 
-    def spotify_user_row
+    def database_row
       query = Db.spotify_tokens.where(user_id: user_id)
       return nil if query.empty?
       return query.first
@@ -68,7 +37,7 @@ module SonosPartyMode
       return @_playlist if @_playlist
 
       # Find or create the Party playlist
-      playlist_id = spotify_user_row.fetch(:playlist_id)
+      playlist_id = database_row.fetch(:playlist_id)
       if !playlist_id
         playlist = spotify_user.create_playlist!("#{user_id} - Jukebox for Sonos - Don't Delete")
         playlist_id = playlist.id
@@ -134,6 +103,43 @@ module SonosPartyMode
         user-library-read
         user-library-modify
       ).join(' ')
+    end
+
+    def new_auth!(authorization_code:, redirect_uri:)
+      auth_string = Base64.strict_encode64(ENV['SPOTIFY_CLIENT_ID'] + ':' + ENV['SPOTIFY_CLIENT_SECRET'])
+      auth_response = Excon.post(
+        'https://accounts.spotify.com/api/token',
+          body: URI.encode_www_form({
+            'grant_type' => 'authorization_code',
+            'redirect_uri' => redirect_uri,
+            'code' => authorization_code,
+          }),
+          headers: {
+            'Authorization' => "Basic #{auth_string}",
+            "Content-Type" => "application/x-www-form-urlencoded",
+          }
+      )
+      parsed_credentials = JSON.parse(auth_response.body)
+
+      # Manually re-name key, via https://github.com/guilhermesad/rspotify/issues/90#issuecomment-519603961
+      parsed_credentials["token"] = parsed_credentials["access_token"]
+
+      info_response = Excon.get('https://api.spotify.com/v1/me',
+        headers: {
+          'Authorization' => "Bearer #{parsed_credentials.fetch("access_token")}"
+        }
+      )
+      info_parsed = JSON.parse(info_response.body)
+
+      options = {
+        'credentials' => parsed_credentials,
+        'info' => info_parsed
+      }
+      user = RSpotify::User.new(options)
+      Db.spotify_tokens.insert(
+        user_id: user_id,
+        options: JSON.pretty_generate(options.to_hash)
+      )
     end
   end
 end

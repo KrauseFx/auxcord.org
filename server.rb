@@ -1,4 +1,5 @@
 require "sinatra/base"
+require "better_errors" # TODO: Remove
 require "pry" # TODO: remove
 require "rspotify"
 require "rqrcode"
@@ -8,8 +9,19 @@ require_relative "./db"
 
 module SonosPartyMode
   class Server < Sinatra::Base
-    enable :sessions
+    # Session management
+    use Rack::Session::Cookie, :key => 'rack.session',
+                           :path => '/',
+                           :secret => ENV.fetch('SESSION_SECRET')
+
+    # Server Config
     set :bind, '0.0.0.0'
+
+    # Development mode
+    configure :development do
+      use BetterErrors::Middleware
+      BetterErrors.application_root = __dir__
+    end
 
     def initialize
       super
@@ -19,8 +31,12 @@ module SonosPartyMode
 
       # Boot up code: load existing sessions into the `session` instances
       SonosPartyMode::Db.users.each do |user|
-        sonos_instances[user[:id]] ||= SonosPartyMode::Sonos.new(user_id: user[:id])
-        spotify_instances[user[:id]] ||= SonosPartyMode::Spotify.new(user_id: user[:id])
+        sonos_obj = SonosPartyMode::Sonos.new(user_id: user[:id])
+        spotify_obj = SonosPartyMode::Spotify.new(user_id: user[:id])
+
+        # Important to check if there is an actual entry, since otherwise there will be empty objects in those hashes
+        sonos_instances[user[:id]] ||= sonos_obj unless sonos_obj.database_row.nil?
+        spotify_instances[user[:id]] ||= spotify_obj unless spotify_obj.database_row.nil?
       end
 
       # Ongoing background thread to monitor all Sonos systems
@@ -37,15 +53,12 @@ module SonosPartyMode
     # -----------------------
 
     def all_sessions?
-      session[:user_id] = 10 # TODO: remove
-
       return sonos_instances[session[:user_id]] && spotify_instances[session[:user_id]]
     end
 
     get "/" do
       @title = "Login"
 
-      session[:user_id] = 10 # TODO: remove
       # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
 
       if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
@@ -310,8 +323,8 @@ module SonosPartyMode
       if params[:state] == Hash(session)["state_key"]
         session[:state_key] = nil
 
-        new_spotify = SonosPartyMode::Spotify.new(user_id: session[:user_id])
-        new_spotify.new_auth!(
+        new_spotify = SonosPartyMode::Spotify.new(
+          user_id: session[:user_id],
           authorization_code: params[:code],
           redirect_uri: SPOTIFY_REDIRECT_URI
         )
