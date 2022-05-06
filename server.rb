@@ -26,6 +26,8 @@ module SonosPartyMode
     def initialize
       super
 
+      puts "Booting up Jukebox and refreshing auth tokens..."
+
       # General
       RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
 
@@ -175,6 +177,18 @@ module SonosPartyMode
       if params[:skip_song]
         sonos.skip_song!
       end
+    end
+
+    get "/logout" do
+      unless all_sessions?
+        redirect "/"
+        return
+      end
+
+      Db.sonos_tokens.where(user_id: session[:user_id]).delete
+      Db.spotify_tokens.where(user_id: session[:user_id]).delete
+
+      redirect "/"
     end
 
     # -----------------------
