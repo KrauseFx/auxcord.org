@@ -130,6 +130,8 @@ module SonosPartyMode
         @already_submitted = params["submitted"].to_s == "true"
         spotify_instance.prepare_welcome_playlist_song!(spotify_playlist)
         return erb :add_playlist_to_favs
+      elsif params["submitted"].to_s == "true"
+        redirect "/party" # to remove the `submitted` GET parameter
       end
 
       # Generate the invite URL
