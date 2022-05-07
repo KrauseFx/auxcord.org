@@ -39,13 +39,12 @@ module SonosPartyMode
         Db.sonos_tokens.where(user_id: user_id).update(group: @group_to_use) # important to use full query
       end
 
-      @party_session_active = false
+      @party_session_active = database_row[:party_active] || false
       @currently_playing_guest_wished_song = false
 
       self.subscribe_to_playback
       self.subscribe_to_playback_metadata
     end
-
 
     # TODO: resubscribe when group was changed
     # TODO: unsuscribe on server shutdown etc
@@ -238,6 +237,12 @@ module SonosPartyMode
       end
 
       return parsed_body
+    end
+
+    # Override party_session_active setter
+    def party_session_active=(value)
+      @party_session_active = value
+      Db.sonos_tokens.where(user_id: user_id).update(party_active: value) # important to use full query
     end
 
     def new_auth!(authorization_code:)

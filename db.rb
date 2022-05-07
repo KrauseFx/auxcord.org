@@ -25,6 +25,7 @@ module SonosPartyMode
           String :expires_in
           Int :volume, default: 20
           String :group
+          TrueClass :party_active
         end
       end
       return shared_database[:sonos_tokens]
