@@ -1,31 +1,90 @@
 <script type="text/javascript">
-  let partyOn = <%= @party_on %>;
-  // Initial UI preparations
-  document.getElementById(partyOn ? 'svg-play' : 'svg-pause').style.display = "none";
+  function refreshUI(data) {
+    document.getElementById("volume-label").innerHTML = data["volume"];
+    document.getElementById("volume-slider").value = data["volume"];
+    document.getElementById("currently-playing-title").innerHTML = data["current_song_details"]["name"];
+    document.getElementById("qr-code").innerHTML = data["qr_code"];
+    document.getElementById("currently-playing-cover").src = data["current_image_url"];
+    document.getElementById("playing-next-cover").src = data["next_image_url"];
+    document.getElementById(data["party_on"] ? 'svg-play' : 'svg-pause').style.display = "none";
+    document.getElementById("party-join-link").children[0].innerHTML = data["party_join_link"];
+    document.getElementById("party-join-link").children[0].href = data["party_join_link"];
+    partyOn = data["party_on"];
+    
+    // Render the current queue
+    const queueList = document.getElementById("queue-list")
+    queueList.innerHTML = "";
+    for (const song of data["queued_songs"]) {
+      const queueEntry = document.createElement("li");
+      queueEntry.classList.add("queue-entry");
+      const queueImage = document.createElement("img");
+      queueImage.classList.add("queue-image");
+      queueImage.src = song["album_cover"]
+      const songName = document.createElement("span");
+      songName.innerHTML = song["name"] + " - " + song["artists"]
+      queueEntry.appendChild(queueImage);
+      queueEntry.appendChild(songName);
+      queueList.appendChild(queueEntry);
+    }
 
-  // Send the updated volume slider value to the server
+    // Render the available groups
+    const groupDiv = document.getElementById("groups-div")
+    groupDiv.innerHTML = "";
+
+    for (const group of data["groups"]) {
+      const label = document.createElement("label");
+      label.classList.add("container");
+      label.innerHTML = group["name"] + " (" + group["number_of_speakers"] + " " + (group["number_of_speakers"] == 1 ? "speaker" : "speakers" + ")");
+      const input = document.createElement("input");
+      input.value = group["id"];
+      input.type = "radio";
+      input.name = "group";
+      input.onclick = function() {
+        updateGroup(group["id"]);
+      }
+      if (group["id"] == data["selected_group"]) {
+        input.checked = true;
+      }
+      const checkmark = document.createElement("span");
+      checkmark.classList.add("checkmark");
+      label.appendChild(input);
+      label.appendChild(checkmark);
+      groupDiv.appendChild(label);
+    }
+  }
+
+  //////////////////
+  // Music Controls
+  //////////////////
+  var pausePlayButton = document.getElementById("pause-play-button");
+  let partyOn = false;
+  pausePlayButton.onclick = function() {
+    partyOn = !partyOn;
+    document.getElementById(partyOn ? 'svg-pause' : 'svg-play').style.display = "block";
+    document.getElementById(partyOn ? 'svg-play' : 'svg-pause').style.display = "none";
+    sendUpdateRequest("party_toggle=" + partyOn);
+  }
+
+  let didSendSkipRequest = false;
+  function skipSong() {
+    document.getElementById("next-song-button").style.backgroundColor = "#a9a9a9";
+    if (didSendSkipRequest) { return; }
+    didSendSkipRequest = true;
+    setTimeout(function() {
+      didSendSkipRequest = false
+    }, 1500);
+    sendUpdateRequest("skip_song=true");
+  }
+
+  //////////////////
+  // Volume Control
+  //////////////////
   var slider = document.getElementById("volume-slider");
   slider.onchange = function() {
     document.getElementById("volume-label").innerHTML = slider.value;
-    sendRequest("volume=" + slider.value);
+    sendUpdateRequest("volume=" + slider.value);
   }
 
-  var pausePlayButton = document.getElementById("pause-play-button");
-  pausePlayButton.onclick = function() {
-    partyOn = !partyOn;
-
-    // Update the pause/play button
-    document.getElementById(partyOn ? 'svg-pause' : 'svg-play').style.display = "block";
-    document.getElementById(partyOn ? 'svg-play' : 'svg-pause').style.display = "none";
-
-    sendRequest("party_toggle=" + partyOn);
-  }
-
-  function updateGroup() {
-    // Get the currently selected group
-    var groupToUse = document.querySelector('input[name="group"]:checked').value;
-    sendRequest("group_to_use=" + groupToUse);
-  }
   function volumeUp() {
     var slider = document.getElementById("volume-slider");
     slider.value = parseInt(slider.value) + 5;
@@ -36,25 +95,48 @@
     slider.value = parseInt(slider.value) - 5;
     slider.onchange();
   }
-  let didSendSkipRequest = false;
-  function skipSong() {
-    document.getElementById("next-song-button").style.backgroundColor = "#a9a9a9";
-    if (didSendSkipRequest) { return; }
-    didSendSkipRequest = true;
-    sendRequest("skip_song=true");
+
+  //////////////////
+  // Group management
+  //////////////////
+  var groupsButton = document.getElementById("groups-button");
+  let groupsVisible = false;
+  groupsButton.onclick = function() {
+    groupsVisible = !groupsVisible;
+    document.getElementById("groups-div").style.display = groupsVisible ? "block" : "none";
   }
 
-  function sendRequest(params) {
+  function updateGroup() {
+    // Get the currently selected group
+    var groupToUse = document.querySelector('input[name="group"]:checked').value;
+    sendUpdateRequest("group_to_use=" + groupToUse);
+  }
+
+  //////////////////
+  // API Requests
+  //////////////////
+  refreshUI(<%= party_data.to_json %>)
+  setInterval(triggerUIRefresh, 1000);
+
+  function sendUpdateRequest(params) {
     var xhttp = new XMLHttpRequest();
     xhttp.open("POST", "/party/host/update", true);
     xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     xhttp.send(params);
   }
 
-  var groupsButton = document.getElementById("groups-button");
-  let groupsVisible = false;
-  groupsButton.onclick = function() {
-    groupsVisible = !groupsVisible;
-    document.getElementById("groups-div").style.display = groupsVisible ? "block" : "none";
+  function triggerUIRefresh() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/party.json", false);
+    xhr.onload = function (e) {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        var data = JSON.parse(xhr.responseText);
+        refreshUI(data);
+      } else {
+        console.error(xhr.statusText);
+      }
+    };
+    xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhr.send();
   }
 </script>

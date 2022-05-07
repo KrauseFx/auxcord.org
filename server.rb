@@ -108,6 +108,20 @@ module SonosPartyMode
         return
       end
 
+      erb :party, locals: party_data
+    end
+
+    get "/party.json" do
+      unless all_sessions?
+        redirect "/"
+        return
+      end
+
+      content_type :json
+      return party_data.to_json
+    end
+
+    def party_data
       spotify_instance = spotify_instances[session[:user_id]]
       sonos_instance = sonos_instances[session[:user_id]]
 
@@ -117,17 +131,18 @@ module SonosPartyMode
       playback_metadata = sonos_instance.playback_metadata
       current_spotify_object_id = playback_metadata["currentItem"]["track"]["id"]["objectId"]
       current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
-      @current_image_url = current_spotify_track.album.images[1]["url"]
+      current_image_url = current_spotify_track.album.images[1]["url"]
+      current_song_details = playback_metadata["currentItem"]["track"]
 
       next_spotify_object_id = playback_metadata["nextItem"]["track"]["id"]["objectId"]
       next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
-      @next_image_url = next_spotify_track.album.images[1]["url"]
+      next_image_url = next_spotify_track.album.images[1]["url"]
 
       sonos_instance_playlist = sonos_instance.ensure_playlist_in_favorites(spotify_playlist_id, force_refresh: params["submitted"].to_s == "true")
       if sonos_instance_playlist.nil?
         # User doesn't have the Spotify playlist in their favorites, show them the onboarding instructions
         @spotify_playlist_name = spotify_playlist.name
-        @already_submitted = params["submitted"].to_s == "true"
+        already_submitted = params["submitted"].to_s == "true"
         spotify_instance.prepare_welcome_playlist_song!(spotify_playlist)
         return erb :add_playlist_to_favs
       elsif params["submitted"].to_s == "true"
@@ -136,33 +151,60 @@ module SonosPartyMode
 
       # Generate the invite URL
       host = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "")
-      @party_join_link = host + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
+      party_join_link = host + "/party/join/" + session[:user_id].to_s + "/" + spotify_playlist_id
 
       # Prepare all other variables needed to render the host dashboard
-      @volume = sonos_instance.database_row.fetch(:volume)
-      @party_on = sonos_instance.party_session_active
+      volume = sonos_instance.database_row.fetch(:volume)
+      party_on = sonos_instance.party_session_active
 
-      @queued_songs = spotify_instance.queued_songs.dup # `.dup` to not modify the actual queue
+      queued_songs = spotify_instance.queued_songs.dup # `.dup` to not modify the actual queue
 
       # Manually prefix the most recently queued song, as it's already in the Sonos queue
       if spotify_instance.past_songs.count > 0 && sonos_instance.currently_playing_guest_wished_song
-        @queued_songs.unshift(spotify_instance.past_songs.last)
+        queued_songs.unshift(spotify_instance.past_songs.last)
       end
 
       sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
-      @groups = sonos_groups.collect do |group|
+      groups = sonos_groups.collect do |group|
         {
           name: group.fetch("name"),
           id: group.fetch("id"),
           number_of_speakers: group.fetch("playerIds").count
         }
       end.sort_by { |group| group[:number_of_speakers] }.reverse
-      @selected_group = sonos_instance.group_to_use
+      selected_group = sonos_instance.group_to_use
 
       # Generate a QR code for the invite URL
-      @qr_code = RQRCode::QRCode.new(@party_join_link)
+      qr_code = RQRCode::QRCode.new(party_join_link)
 
-      erb :party
+      return {
+        selected_group: selected_group,
+        groups: groups,
+        party_on: party_on,
+        queued_songs: queued_songs.collect do |track|
+          {
+            album_cover: track.album.images[-1]["url"],
+            name: track.name,
+            artists: track.artists.map(&:name).join(", "),
+            id: track.id.to_s,
+            duration: track.duration_ms.to_i / 1000,
+            uri: track.uri,
+          }
+        end,
+        current_image_url: current_image_url,
+        next_image_url: next_image_url,
+        current_song_details: current_song_details,
+        already_submitted: already_submitted, # TODO: do we need this?
+        volume: volume,
+        party_join_link: party_join_link,
+        qr_code: qr_code.as_svg(
+          color: "000",
+          shape_rendering: "crispEdges",
+          module_size: 4,
+          standalone: true,
+          use_path: true
+        )
+      }
     end
 
     post "/party/host/update" do

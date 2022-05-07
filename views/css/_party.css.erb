@@ -7,22 +7,26 @@
     border-top-left-radius: 200px;
     border-top-right-radius: 200px;
   }
-  #currently-playing {
+  #currently-playing-cover {
     width: 40%;
     margin-left: 120px;
-    margin-top: 60px;
+    margin-top: 30px;
     border: 1px solid #888;
   }
-  #playing-next {
+  #playing-next-cover {
     width: 20%;
-    margin-left: 50%%;
-    margin-top: -75px;
+    margin-left: calc(50% + 90px);
+    margin-top: -133px;
     border: 1px solid #888;
+  }
+  #currently-playing-title {
+    text-align: center;
+    color: white;
   }
   #media-controls {
     width: 100%;
     height: 100px;
-    margin-top: -60px;
+    margin-top: -70px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -55,7 +59,7 @@
   #queue {
     overflow-y: scroll;
     width: 100%;
-    height: 250px;
+    height: 230px;
     margin-top: 50px;
     background-color: rgba(255, 255, 255, 0.5);
     padding: 5px;
@@ -67,6 +71,9 @@
   .queue-entry {
     display: flex;
     margin-bottom: 10px;
+  }
+  .queue-image {
+    
   }
   .queue-entry > span {
     margin-left: 10px;

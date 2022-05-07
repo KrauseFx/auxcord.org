@@ -3,16 +3,16 @@
     <button onclick="volumeDown()">
       <%= erb :"svgs/_button-arrow-left.svg", layout: false %>
     </button>
-    <input type="range" min="0" max="100" value="<%= @volume %>" class="slider" id="volume-slider">
-    <span id="volume-label"><%= @volume %></span>
+    <input type="range" min="0" max="100" value="" class="slider" id="volume-slider">
+    <span id="volume-label"></span>
     <button onclick="volumeUp()">
       <%= erb :"svgs/_button-arrow-right.svg", layout: false %>
     </button>
   </div>
   
-
-  <img id="currently-playing" src="<%= @current_image_url %>">
-  <img id="playing-next" src="<%= @next_image_url %>">
+  <img id="currently-playing-cover">
+  <p id="currently-playing-title"></p>
+  <img id="playing-next-cover">
   <div id="media-controls">
     <div id="empty-control"></div>
     <button id="pause-play-button">
@@ -24,40 +24,17 @@
     </button>
   </div>
   <div id="queue">
-    <ul id="queue-list">
-      <% @queued_songs.each do |song| %>
-        <li class="queue-entry">
-          <img src="<%= song.album.images.last["url"] %>" class="queue-image" />
-          <span><%= song.name %> - <%= song.artists.collect { |a| a.name }.join(", ") %></span>
-        </li>
-      <% end %>
-    </ul>
+    <ul id="queue-list"></ul>
   </div>
 
-  <div id="qr-code">
-    <%= @qr_code.as_svg(
-      color: "000",
-      shape_rendering: "crispEdges",
-      module_size: 4,
-      standalone: true,
-      use_path: true
-    )
-    %>
-  </div>
-  <p id="party-join-link"><a target="_blank" href="<%= @party_join_link %>"><%= @party_join_link %></a></p>
+  <div id="qr-code"></div>
+  <p id="party-join-link"><a target="_blank"></a></p>
   <button id="groups-button">
     <%= erb :"svgs/_button-groups.svg", layout: false %>
   </button>
 </div>
 
-<div id="groups-div">
-  <% @groups.each do |group| %>
-    <label class="container"><%= group[:name] %> (<%= group[:number_of_speakers] %> <%= group[:number_of_speakers] == 1 ? "speaker" : "speakers" %>)
-      <input value="<%= group[:id] %>" type="radio" name="group" onclick="updateGroup()" <%= @selected_group == group[:id] ? 'checked="checked"' : '' %>>
-      <span class="checkmark"></span>
-    </label>
-  <% end %>
-</div>
+<div id="groups-div"></div>
 
 <div id="footer">
   <a href="/logout">Logout & Remove all Login tokens</a>
