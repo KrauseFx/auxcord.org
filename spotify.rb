@@ -1,7 +1,7 @@
 require "excon"
 require "rspotify"
 require "json"
-require "pry"
+# require "pry"
 require_relative "./db"
 
 module SonosPartyMode
