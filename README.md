@@ -54,3 +54,11 @@ bundle exec ruby server.rb
 ```
 cloudflared tunnel run satisfactory-opt-some-chen-fx
 ```
+
+This will build up the tunnel to expose
+
+```
+https://runnel.felixkrause.me/
+```
+
+for the SONOS webhooks
