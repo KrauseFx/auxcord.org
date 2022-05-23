@@ -231,7 +231,9 @@ module SonosPartyMode
 
       if params[:volume]
         volume = params[:volume].to_i
-        sonos.ensure_volume!(volume, check_first: false) # First, set the volume
+        if sonos.party_session_active
+          sonos.ensure_volume!(volume, check_first: false) # First, set the volume
+        end
         sonos.target_volume = volume # Then, set it as the target volume for when a user changes it
         Db.sonos_tokens.where(user_id: session[:user_id]).update(volume: volume) # now, store in db for next run, important to use full query
       end
