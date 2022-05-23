@@ -108,7 +108,15 @@ module SonosPartyMode
         return
       end
 
-      erb :party, locals: party_data
+      pd = party_data
+      if pd[:redirect] == "/party"
+        redirect "/party" # to remove the `submitted` GET parameter
+      elsif pd[:erb] == :add_playlist_to_favs
+        @already_submitted = params["submitted"].to_s == "true"
+        return erb :add_playlist_to_favs
+      else
+        erb :party, locals: pd
+      end
     end
 
     get "/party.json" do
@@ -118,7 +126,11 @@ module SonosPartyMode
       end
 
       content_type :json
-      return party_data.to_json
+      pd = party_data
+      if pd[:redirect] || pd[:erb]
+        return {}.to_json
+      end
+      return pd.to_json
     end
 
     def party_data
@@ -142,11 +154,14 @@ module SonosPartyMode
       if sonos_instance_playlist.nil?
         # User doesn't have the Spotify playlist in their favorites, show them the onboarding instructions
         @spotify_playlist_name = spotify_playlist.name
-        already_submitted = params["submitted"].to_s == "true"
         spotify_instance.prepare_welcome_playlist_song!(spotify_playlist)
-        return erb :add_playlist_to_favs
+        return {
+          erb: :add_playlist_to_favs
+        }
       elsif params["submitted"].to_s == "true"
-        redirect "/party" # to remove the `submitted` GET parameter
+        return {
+          redirect: "/party" # to remove the `submitted` GET parameter
+        }
       end
 
       # Generate the invite URL
@@ -194,7 +209,6 @@ module SonosPartyMode
         current_image_url: current_image_url,
         next_image_url: next_image_url,
         current_song_details: current_song_details,
-        already_submitted: already_submitted, # TODO: do we need this?
         volume: volume,
         party_join_link: party_join_link,
         qr_code: qr_code.as_svg(
