@@ -1,7 +1,7 @@
 require "sinatra/base"
-require "sinatra/reloader" # TODO: Remove
-require "better_errors" # TODO: Remove
-require "pry" # TODO: Remove
+# require "sinatra/reloader" # TODO: Remove
+# require "better_errors" # TODO: Remove
+# require "pry" # TODO: Remove
 require "rspotify"
 require "rqrcode"
 require_relative "./sonos"
