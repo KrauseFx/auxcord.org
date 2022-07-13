@@ -7,6 +7,8 @@ require_relative "./db"
 
 module SonosPartyMode
   class Server < Sinatra::Base
+    HOST_URL = ENV.fetch("CUSTOM_HOST_URL") # e.g. "http://localhost:4567"
+
     # Session management
     use Rack::Session::Cookie, :key => 'rack.session',
                            :path => '/',
@@ -75,7 +77,7 @@ module SonosPartyMode
       @logged_out = params[:logged_out]
 
       if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
-        redirect_uri = "http://localhost:4567/sonos/authorized.html"
+        redirect_uri = "#{HOST_URL}/sonos/authorized.html"
         @sonos_login_url = "https://api.sonos.com/login/v3/oauth?" +
                         "client_id=#{ENV.fetch('SONOS_KEY')}&" + 
                         "response_type=code&" + 
@@ -460,7 +462,7 @@ module SonosPartyMode
     # -----------------------
 
     SPOTIFY_REDIRECT_PATH = '/auth/spotify/callback'
-    SPOTIFY_REDIRECT_URI = "http://localhost:4567#{SPOTIFY_REDIRECT_PATH}"
+    SPOTIFY_REDIRECT_URI = "#{HOST_URL}#{SPOTIFY_REDIRECT_PATH}"
 
     get SPOTIFY_REDIRECT_PATH do
       if params[:state] == Hash(session)["state_key"]

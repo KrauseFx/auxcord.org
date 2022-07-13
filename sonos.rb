@@ -256,7 +256,7 @@ module SonosPartyMode
         body: URI.encode_www_form({
           grant_type: "authorization_code",
           code: authorization_code,
-          redirect_uri: "http://localhost:4567/sonos/authorized.html"
+          redirect_uri: "#{ENV.fetch("CUSTOM_HOST_URL")}/sonos/authorized.html"
         })
       )
 
