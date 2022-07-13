@@ -388,7 +388,10 @@ module SonosPartyMode
       spotify_instance = nil
       filtered_instances.each do |ins|
         spotify_instance = spotify_instances[ins.user_id]
-        break if spotify_instance
+        if spotify_instance
+          sonos_instance = ins
+          break
+        end
       end
       if spotify_instance.nil? # not yet fully connected
         puts "Couldn't find the spotify instance for #{filtered_instances}"
