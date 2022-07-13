@@ -378,20 +378,20 @@ module SonosPartyMode
       puts "Received Sonos Web API callback for #{sonos_group_id}"
 
       # Find the matching sonos session to use
-      sonos_instances = sonos_instances.values.find { |a| a.group_to_use == sonos_group_id }
-      if sonos_instances.count == 0 # not a Sonos system we actively manage (any more)
+      filtered_instances = sonos_instances.values.find { |a| a.group_to_use == sonos_group_id }
+      if filtered_instances.count == 0 # not a Sonos system we actively manage (any more)
         puts "Couldn't find the Sonos instance for #{sonos_group_id}"
         return
       end
 
       # iterate over multiple, in case there was half an auth, and we have an old session
       spotify_instance = nil
-      sonos_instances.each do |ins|
+      filtered_instances.each do |ins|
         spotify_instance = spotify_instances[ins.user_id]
         break if spotify_instance
       end
       if spotify_instance.nil? # not yet fully connected
-        puts "Couldn't find the spotify instance for #{sonos_instances}"
+        puts "Couldn't find the spotify instance for #{filtered_instances}"
         return
       end
 
