@@ -43,7 +43,7 @@
 <%# <div id="groups-div"></div> %>
 
 <div id="footer">
-  <a href="/logout">Logout & Remove all Login tokens</a>
+  <a href="/logout" onclick="return confirm('Are you sure you want to delete your Spotify & Sonos login tokens, and logout from Jukebox?')">Logout & Remove all Login tokens</a>
 </div>
 
 <%= erb :"js/_party.js", layout: false %>
