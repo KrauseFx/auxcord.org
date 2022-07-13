@@ -39,7 +39,7 @@ module SonosPartyMode
       # Find or create the Party playlist
       playlist_id = database_row.fetch(:playlist_id)
       if !playlist_id
-        playlist = spotify_user.create_playlist!("#{user_id} - Jukebox for Sonos - Don't Delete")
+        playlist = spotify_user.create_playlist!("#{user_id} Jukebox for Sonos - Don't Delete")
         playlist_id = playlist.id
         self.prepare_welcome_playlist_song!(playlist)
 
