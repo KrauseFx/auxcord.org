@@ -2,7 +2,6 @@
   #jukebox-outline {
     width: 400px;
     height: 800px;
-    max-width: 100%;
     background-color: #a7644a;
     border-top-left-radius: 200px;
     border-top-right-radius: 200px;
@@ -33,12 +32,29 @@
     margin-left: calc(50% + 90px);
     border-radius: 80px;
     box-shadow: 3px 3px 15px black;
-    margin-top: -133px;
+    margin-top: -86px;
     border: 1px solid #888;
+  }
+  #bar {
+    height: 10px;
+    background-color: #f6f500;
+    opacity: 0.8;
+    box-shadow: 3px 3px 55px #f6f500;
+    border: none;
+    margin-top: 20px;
+  }
+  #cover-reader {
+    position: absolute;
+    height: 100px;
+    top: 120px;
+    left: 70px;
+    opacity: 0.75;
+    -webkit-transform: scaleX(-1);
   }
   #currently-playing-title {
     text-align: center;
     color: white;
+    margin-top: 10px;
   }
   #no-songs-text {
     text-align: center;
@@ -115,7 +131,7 @@
     background-color: #ccc;
   }
   #party-join-link {
-    font-size: 10px;
+    font-size: 12px;
     text-align: center;
   }
   #party-join-link > a {
@@ -123,25 +139,29 @@
   }
   #qr-code {
     text-align: center;
-    margin-top: 40px;
+    margin-top: 12px;
   }
   #volume-container {
     position: absolute;
     transform: rotate(-90deg);
-    left: 240px;
-    top: 380px;
+    left: 170px;
+    top: 530px;
     width: 400px;
+  }
+  #volume-slider {
+    display: none;
   }
   #volume-container > button {
     border: none;
     text-decoration: none;
     display: inline-block;
     background-color: rgba(200, 180, 130, 0.95);
-    border-radius: 15px;
+    border-radius: 105px;
     width: 40px;
+    margin-left: 10px;
     height: 40px;
-    color: white;
     cursor: pointer;
+    box-shadow: 3px 3px 15px rgba(0, 0, 0, 0.7);
   }
   #groups-button {
     position: relative;

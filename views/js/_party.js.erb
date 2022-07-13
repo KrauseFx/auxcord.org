@@ -1,6 +1,6 @@
 <script type="text/javascript">
   function refreshUI(data) {
-    document.getElementById("volume-label").innerHTML = data["volume"];
+    // document.getElementById("volume-label").innerHTML = data["volume"];
     document.getElementById("volume-slider").value = data["volume"];
     document.getElementById("currently-playing-title").innerHTML = data["current_song_details"]["name"];
     document.getElementById("qr-code").innerHTML = data["qr_code"];
@@ -82,7 +82,7 @@
   //////////////////
   var slider = document.getElementById("volume-slider");
   slider.onchange = function() {
-    document.getElementById("volume-label").innerHTML = slider.value;
+    // document.getElementById("volume-label").innerHTML = slider.value;
     sendUpdateRequest("volume=" + slider.value);
   }
 
