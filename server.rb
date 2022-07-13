@@ -8,6 +8,7 @@ require_relative "./db"
 module SonosPartyMode
   class Server < Sinatra::Base
     HOST_URL = ENV.fetch("CUSTOM_HOST_URL") # e.g. "http://localhost:4567"
+    raise "Don't add trailing /" if HOST_URL.end_with?("/")
 
     # Session management
     use Rack::Session::Cookie, :key => 'rack.session',
@@ -73,7 +74,6 @@ module SonosPartyMode
     get "/" do
       @title = "Login"
 
-      # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
       @logged_out = params[:logged_out]
 
       if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
@@ -379,10 +379,16 @@ module SonosPartyMode
 
       # Find the matching sonos session to use
       sonos_instance = sonos_instances.values.find { |a| a.group_to_use == sonos_group_id }
-      return if sonos_instance.nil? # not a Sonos system we actively manage (any more)
+      if sonos_instance.nil? # not a Sonos system we actively manage (any more)
+        puts "Couldn't find the Sonos instance for #{sonos_group_id}"
+        return
+      end
 
       spotify_instance = spotify_instances[sonos_instance.user_id]
-      return if spotify_instance.nil? # not yet fully connected
+      if spotify_instance.nil? # not yet fully connected
+        puts "Couldn't find the spotify instance for #{sonos_instance.user_id}"
+        return
+      end
 
       puts "\n\nSonos Notification\n\n"
       puts JSON.pretty_generate(info)
@@ -398,6 +404,7 @@ module SonosPartyMode
       if info["itemId"]
         if sonos_instance.current_item_id != info.fetch("itemId") && 
           sonos_instance.current_item_id == info.fetch("previousItemId")
+          puts "mismatching item IDs, this means the song is over"
 
           # Set it immediately, as the Sonos web requests do take some time to complete
           sonos_instance.current_item_id = info.fetch("itemId") # always set it
@@ -406,6 +413,7 @@ module SonosPartyMode
           # we use this to do proper queueing of upcoming songs
 
           # We queue the next song (after this one's finished)
+          puts "Queue the new song now"
           if spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
             sonos_instance.currently_playing_guest_wished_song = true
           else
