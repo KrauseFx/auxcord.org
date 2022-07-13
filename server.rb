@@ -433,6 +433,15 @@ module SonosPartyMode
         next_spotify_object_id = info["nextItem"]["track"]["id"]["objectId"]
         next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
       end
+
+      # Respond to Sonos
+      #
+      # When you receive an event, send a 200 OK response to let the Sonos cloud know that your client received it. Any response outside of the 200 range will be considered an error, including no response. Sonos also considers a 301 redirect an error as it does not follow redirects for events.
+      # If Sonos isn’t able to send an event to your client, it retries every second for three tries. After the third try, if the Sonos cloud receives another error response or no response, it drops the event. Sonos does not backlog or replay events.
+      # Make sure that your client responds to events quickly (within 1 second). To make sure that apps don’t accidentally run over the timeout limit, we recommend that you defer any lengthy event processing until after you’ve sent the 200 OK response.
+      # As a best practice, you should unsubscribe to namespaces before terminating your event service.
+      status 200
+      body ''
     end
 
     # -----------------------
