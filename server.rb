@@ -18,12 +18,6 @@ module SonosPartyMode
     # Server Config
     set :bind, '0.0.0.0'
 
-    # Development mode
-    configure :development do
-      use BetterErrors::Middleware
-      BetterErrors.application_root = __dir__
-    end
-
     def load_tokens_from_db
       # Boot up code: load existing sessions into the `session` instances
       SonosPartyMode::Db.users.each do |user|
@@ -223,7 +217,7 @@ module SonosPartyMode
         qr_code: qr_code.as_svg(
           color: "000",
           shape_rendering: "crispEdges",
-          module_size: 4,
+          module_size: 3,
           standalone: true,
           use_path: true
         )
