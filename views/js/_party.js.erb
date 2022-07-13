@@ -26,6 +26,7 @@
       queueEntry.appendChild(songName);
       queueList.appendChild(queueEntry);
     }
+    document.getElementById("no-songs-text").style.display = data["queued_songs"].length == 0 ? "block" : "none";
 
     // Render the available groups
     // const groupDiv = document.getElementById("groups-div")

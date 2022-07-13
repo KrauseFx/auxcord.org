@@ -1,4 +1,5 @@
 <div id="jukebox-outline">
+  <div id="jukebox-innerline"></div>
   <div id="volume-container">
     <button onclick="volumeDown()">
       <%= erb :"svgs/_button-arrow-left.svg", layout: false %>
@@ -24,6 +25,9 @@
     </button>
   </div>
   <div id="queue">
+    <p id="no-songs-text">
+      Share the link or QR code below with your friends for them to queue songs
+    </p>
     <ul id="queue-list"></ul>
   </div>
 
