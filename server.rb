@@ -70,6 +70,7 @@ module SonosPartyMode
       @title = "Login"
 
       # redirect_uri = request.scheme + "://" + request.host + (request.port == 4567 ? ":#{request.port}" : "") + "/sonos/authorized.html"
+      @logged_out = params[:logged_out]
 
       if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count == 0
         redirect_uri = "http://localhost:4567/sonos/authorized.html"
