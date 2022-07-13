@@ -378,7 +378,7 @@ module SonosPartyMode
       puts "Received Sonos Web API callback for #{sonos_group_id}"
 
       # Find the matching sonos session to use
-      filtered_instances = sonos_instances.values.find { |a| a.group_to_use == sonos_group_id }
+      filtered_instances = sonos_instances.values.find_all { |a| a.group_to_use == sonos_group_id }
       if filtered_instances.count == 0 # not a Sonos system we actively manage (any more)
         puts "Couldn't find the Sonos instance for #{sonos_group_id}"
         return
