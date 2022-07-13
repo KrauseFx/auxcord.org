@@ -1,6 +1,4 @@
 require "sinatra/base"
-# require "better_errors" # TODO: Remove
-# require "pry" # TODO: Remove
 require "rspotify"
 require "rqrcode"
 require_relative "./sonos"
@@ -23,14 +21,7 @@ module SonosPartyMode
       BetterErrors.application_root = __dir__
     end
 
-    def initialize
-      super
-
-      puts "Booting up Jukebox and refreshing auth tokens..."
-
-      # General
-      RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
-
+    def load_tokens_from_db
       # Boot up code: load existing sessions into the `session` instances
       SonosPartyMode::Db.users.each do |user|
         sonos_obj = SonosPartyMode::Sonos.new(user_id: user[:id])
@@ -40,6 +31,17 @@ module SonosPartyMode
         sonos_instances[user[:id]] ||= sonos_obj unless sonos_obj.database_row.nil?
         spotify_instances[user[:id]] ||= spotify_obj unless spotify_obj.database_row.nil?
       end
+    end
+
+    def initialize
+      super
+
+      puts "Booting up Jukebox and refreshing auth tokens..."
+
+      # General
+      RSpotify::authenticate(ENV.fetch("SPOTIFY_CLIENT_ID"), ENV.fetch("SPOTIFY_CLIENT_SECRET"))
+
+      load_tokens_from_db
 
       # Ongoing background thread to monitor all Sonos systems
       Thread.new do
@@ -93,6 +95,12 @@ module SonosPartyMode
     def ensure_current_sonos_settings!
       sonos_instances.each do |user_id, sonos|
         sonos.ensure_current_sonos_settings!
+      end
+    end
+
+    get "/assets/*" do
+      if request.path == "/assets/reader.png"
+        send_file "views/assets/reader.png"
       end
     end
 
@@ -273,7 +281,7 @@ module SonosPartyMode
       Db.sonos_tokens.where(user_id: session[:user_id]).delete
       Db.spotify_tokens.where(user_id: session[:user_id]).delete
 
-      redirect "/"
+      redirect "/?logged_out=true"
     end
 
     # -----------------------
@@ -322,7 +330,11 @@ module SonosPartyMode
           position: spotify_instance.queued_songs.count
         }.to_json
       else
-        binding.pry if spotify_instance.queued_songs.count != 1
+        if spotify_instance.queued_songs.count != 1
+          puts "Something went wrong"
+          puts spotify_instance.queued_songs
+          binding.pry
+        end
         sonos_instance.currently_playing_guest_wished_song = true
         Thread.new do # async
           spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
@@ -460,6 +472,9 @@ module SonosPartyMode
           redirect_uri: SPOTIFY_REDIRECT_URI
         )
         spotify_instances[session[:user_id]] = new_spotify
+        load_tokens_from_db # TODO: I don't know why, but for some reason `spotify_instances` isn't persistant properly
+      else
+        puts "Mismatching #{params[:state]}"
       end
       redirect "/"
     end
@@ -503,11 +518,11 @@ module SonosPartyMode
 
     # Caching state
     def sonos_instances
-      @sonos_instances ||= {}
+      @_sonos_instances ||= {}
     end
 
     def spotify_instances
-      @spotify_instances ||= {}
+      @_spotify_instances ||= {}
     end
 
     run!
