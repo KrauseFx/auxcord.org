@@ -386,6 +386,7 @@ module SonosPartyMode
 
       # iterate over multiple, in case there was half an auth, and we have an old session
       spotify_instance = nil
+      sonos_instance = nil
       filtered_instances.each do |ins|
         spotify_instance = spotify_instances[ins.user_id]
         if spotify_instance
