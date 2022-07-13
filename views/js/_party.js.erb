@@ -28,29 +28,29 @@
     }
 
     // Render the available groups
-    const groupDiv = document.getElementById("groups-div")
-    groupDiv.innerHTML = "";
+    // const groupDiv = document.getElementById("groups-div")
+    // groupDiv.innerHTML = "";
 
-    for (const group of data["groups"]) {
-      const label = document.createElement("label");
-      label.classList.add("container");
-      label.innerHTML = group["name"] + " (" + group["number_of_speakers"] + " " + (group["number_of_speakers"] == 1 ? "speaker" : "speakers" + ")");
-      const input = document.createElement("input");
-      input.value = group["id"];
-      input.type = "radio";
-      input.name = "group";
-      input.onclick = function() {
-        updateGroup(group["id"]);
-      }
-      if (group["id"] == data["selected_group"]) {
-        input.checked = true;
-      }
-      const checkmark = document.createElement("span");
-      checkmark.classList.add("checkmark");
-      label.appendChild(input);
-      label.appendChild(checkmark);
-      groupDiv.appendChild(label);
-    }
+    // for (const group of data["groups"]) {
+    //   const label = document.createElement("label");
+    //   label.classList.add("container");
+    //   label.innerHTML = group["name"] + " (" + group["number_of_speakers"] + " " + (group["number_of_speakers"] == 1 ? "speaker" : "speakers" + ")");
+    //   const input = document.createElement("input");
+    //   input.value = group["id"];
+    //   input.type = "radio";
+    //   input.name = "group";
+    //   input.onclick = function() {
+    //     updateGroup(group["id"]);
+    //   }
+    //   if (group["id"] == data["selected_group"]) {
+    //     input.checked = true;
+    //   }
+    //   const checkmark = document.createElement("span");
+    //   checkmark.classList.add("checkmark");
+    //   label.appendChild(input);
+    //   label.appendChild(checkmark);
+    //   groupDiv.appendChild(label);
+    // }
   }
 
   //////////////////
@@ -103,7 +103,12 @@
   let groupsVisible = false;
   groupsButton.onclick = function() {
     groupsVisible = !groupsVisible;
-    document.getElementById("groups-div").style.display = groupsVisible ? "block" : "none";
+    const groupsDiv = document.getElementById("groups-div")
+    groupsDiv.style.display = groupsVisible ? "block" : "none";
+    if (groupsVisible) {
+      groupsDiv.style.marginTop = (groupsDiv.scrollHeight * -1 - 50) + "px";
+    }
+    document.getElementById("qr-code").style.opacity = groupsVisible ? "0.1" : "1";
   }
 
   function updateGroup() {
