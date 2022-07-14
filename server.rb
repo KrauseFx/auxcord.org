@@ -5,6 +5,10 @@ require_relative "./sonos"
 require_relative "./spotify"
 require_relative "./db"
 
+GlobalState = {}
+GlobalState[:spotify_instances] = {}
+GlobalState[:sonos_instances] = {}
+
 module SonosPartyMode
   class Server < Sinatra::Base
     HOST_URL = ENV.fetch("CUSTOM_HOST_URL") # e.g. "http://localhost:4567"
@@ -485,7 +489,6 @@ module SonosPartyMode
           redirect_uri: SPOTIFY_REDIRECT_URI
         )
         spotify_instances[session[:user_id]] = new_spotify
-        load_tokens_from_db # TODO: I don't know why, but for some reason `spotify_instances` isn't persistant properly
       else
         puts "Mismatching #{params[:state]}"
       end
@@ -531,11 +534,11 @@ module SonosPartyMode
 
     # Caching state
     def sonos_instances
-      @_sonos_instances ||= {}
+      GlobalState[:sonos_instances]
     end
 
     def spotify_instances
-      @_spotify_instances ||= {}
+      GlobalState[:spotify_instances]
     end
 
     run!
