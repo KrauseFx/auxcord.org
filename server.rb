@@ -148,6 +148,14 @@ module SonosPartyMode
       spotify_playlist_id = spotify_playlist.id
 
       playback_metadata = sonos_instance.playback_metadata
+      if playback_metadata["currentItem"]["track"]["id"].nil?
+        sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
+        # Nothing playing
+        return {
+          nothing_playing: true,
+          group_to_use: sonos_groups.find { |a| a["id"] == sonos_instance.group_to_use }["name"],
+        }
+      end
       current_spotify_object_id = playback_metadata["currentItem"]["track"]["id"]["objectId"]
       current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
       current_image_url = current_spotify_track.album.images[1]["url"]
