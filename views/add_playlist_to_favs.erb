@@ -1,13 +1,12 @@
 <h1>Jukebox for Sonos</h1>
 
-<h3>Finish setup</h3>
-
 <% if @already_submitted %>
-  <%# TODO: add design %>
-  <h2 style="color: red">Could not find the playlist, please make sure to follow the steps below</h2>
+  <h2 style="color: rgb(175, 0, 0)">Could not find the playlist, please make sure to follow the steps below</h2>
+  <p>Also, it takes up to 20 seconds for Sonos to recognize the playlist, just hit the button below again</p>
+  <br />
 <% end %>
 
-<p>Before you can use Jukebox for Sonos, you have to do one manually. This is required to have the connection between Sonos and Spotify. The playlist talked below is only used internally, and you don't have to interact with it at all.</p>
+<p>Before you can use Jukebox for Sonos, you have to do one manually. This is required to have the connection between Sonos and Spotify. The playlist mentioned below is only used internally, and you don't have to interact with it at all once onboarding is completed.</p>
 
 <ol>
   <li>Open the <b>Sonos app</b> on your iPhone or Android</li>
@@ -19,4 +18,19 @@
   <li>Optional: In the Spotify app, you can also rename the playlist if you prefer a different name.</li>
 </ol>
 
-<a href="/party?submitted=true"><b>Press here once you completed the above. This might take a few seconds</b></a>
+<p>
+  <a href="/party?submitted=true"><b>Press here once you completed the above. This might take a few seconds...</b></a>
+</p>
+
+<img src="/assets/add-to-sonos-search.png" class="screenshot-framed" />
+<img src="/assets/add-to-sonos-menu.png" class="screenshot-framed" />
+
+
+<style type="text/css">
+  .screenshot-framed {
+    width: 100%;
+    max-width: 250px;
+    margin: 0 auto;
+    padding: 15px;
+  }
+</style>

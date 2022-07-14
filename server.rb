@@ -99,8 +99,14 @@ module SonosPartyMode
     end
 
     get "/assets/*" do
-      if request.path == "/assets/reader.png"
-        send_file "views/assets/reader.png"
+      if [
+        "/assets/reader.png",
+        "/assets/add-to-sonos-menu.png",
+        "/assets/add-to-sonos-search.png",
+      ].include?(request.path)
+        return send_file File.join("views", request.path)
+      else
+        return nil
       end
     end
 
@@ -341,7 +347,6 @@ module SonosPartyMode
         if spotify_instance.queued_songs.count != 1
           puts "Something went wrong"
           puts spotify_instance.queued_songs
-          binding.pry
         end
         sonos_instance.currently_playing_guest_wished_song = true
         Thread.new do # async
