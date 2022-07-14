@@ -2,15 +2,14 @@ source "https://rubygems.org"
 ruby "3.0.2"
 
 gem "sinatra"
-gem "puma"
+gem "puma", "~> 5.6"
 
 gem "rspotify"
 gem "excon"
 gem "sequel"
-gem "pg"
+gem "pg", "~> 1.3.4"
 gem "rqrcode", "~> 2.0"
 
-# TODO: Remove from Gemfile
 group :development do
   gem "pry"
   gem "better_errors"
