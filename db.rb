@@ -1,13 +1,15 @@
-require "sequel"
+# frozen_string_literal: true
+
+require 'sequel'
 
 module SonosPartyMode
   class Db
     def self.shared_database
-      @shared_database ||= Sequel.connect(ENV.fetch("DATABASE_URL"))
+      @shared_database ||= Sequel.connect(ENV.fetch('DATABASE_URL'))
     end
 
     def self.users
-      if !shared_database.table_exists?(:users)
+      unless shared_database.table_exists?(:users)
         shared_database.create_table :users do
           primary_key :id
         end
@@ -16,7 +18,7 @@ module SonosPartyMode
     end
 
     def self.sonos_tokens
-      if !shared_database.table_exists?(:sonos_tokens)
+      unless shared_database.table_exists?(:sonos_tokens)
         shared_database.create_table :sonos_tokens do
           primary_key :id
           foreign_key :user_id, :users
@@ -33,7 +35,7 @@ module SonosPartyMode
     end
 
     def self.spotify_tokens
-      if !shared_database.table_exists?(:spotify_tokens)
+      unless shared_database.table_exists?(:spotify_tokens)
         shared_database.create_table :spotify_tokens do
           primary_key :id
           foreign_key :user_id, :users
