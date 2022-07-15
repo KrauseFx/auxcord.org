@@ -1,5 +1,5 @@
 <script type="text/javascript">
-  function refreshUI(data) {
+  function refreshUI(data, initialLoad) {
     if (data["nothing_playing"]) {
       document.getElementById("nothing-playing").style.display = "block";
       document.getElementById("jukebox-outline").style.display = "none";
@@ -13,7 +13,10 @@
     // document.getElementById("volume-label").innerHTML = data["volume"];
     document.getElementById("volume-slider").value = data["volume"];
     document.getElementById("currently-playing-title").innerHTML = data["current_song_details"]["name"];
-    document.getElementById("qr-code").innerHTML = data["qr_code"];
+    if (initialLoad) {
+      // No need to always re-render the QR code as it's immutable
+      document.getElementById("qr-code").innerHTML = data["qr_code"];
+    }
     document.getElementById("currently-playing-cover").src = data["current_image_url"];
     document.getElementById("playing-next-cover").src = data["next_image_url"];
     document.getElementById(data["party_on"] ? 'svg-play' : 'svg-pause').style.display = "none";
@@ -131,7 +134,7 @@
   //////////////////
   // API Requests
   //////////////////
-  refreshUI(<%= party_data.to_json %>)
+  refreshUI(<%= party_data.to_json %>, true)
   setInterval(triggerUIRefresh, 2500);
 
   function sendUpdateRequest(params) {
@@ -147,7 +150,7 @@
     xhr.onload = function (e) {
       if (xhr.readyState === 4 && xhr.status === 200) {
         var data = JSON.parse(xhr.responseText);
-        refreshUI(data);
+        refreshUI(data, false);
       } else {
         console.error(xhr.statusText);
       }
