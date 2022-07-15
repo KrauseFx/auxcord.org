@@ -113,7 +113,7 @@ module SonosPartyMode
         '/assets/android-chrome-512x512',
         '/assets/android-chrome-192x192',
         '/assets/logo.png',
-      ].include?(request.path)
+      ].include?(request.path) || request.path.start_with?('/assets/memes/')
         return send_file File.join('views', request.path)
       else
         return nil
