@@ -1,6 +1,5 @@
 require "sinatra/base"
 require "rspotify"
-require "pry"
 require "rqrcode"
 require_relative "./sonos"
 require_relative "./spotify"
