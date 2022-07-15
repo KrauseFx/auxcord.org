@@ -1,4 +1,4 @@
-# Jukebox for Sonos
+# [auxcord.org](auxcord.org)
 
 Do you have a Sonos system, and are hosting a party? Let's gooo
 
@@ -62,3 +62,7 @@ https://runnel.felixkrause.me/
 ```
 
 for the SONOS webhooks
+
+### Hosting
+
+This is hosted on https://railway.com/ at the time of writing

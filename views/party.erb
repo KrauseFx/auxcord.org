@@ -51,7 +51,24 @@
 <%# <div id="groups-div"></div> %>
 
 <div id="footer">
-  <a href="/logout" onclick="return confirm('Are you sure you want to delete your Spotify & Sonos login tokens, and logout from Jukebox?')">Logout & Remove all Login tokens</a>
+  <a href="/logout" onclick="return confirm('Are you sure you want to delete your Spotify & Sonos login tokens, and logout from auxcord.org?')">Logout & Remove all Login tokens</a>
+</div>
+
+<div id="instruction">
+  <ol>
+    <li>Group all the speakers you want to use</li>
+    <li>Play your Party playlist through the Sonos app</li>
+    <li>Share the link or QR code from this page with your friends</li>
+    <li>Start the party mode on this page</li>
+    <li>As your guests add new songs, they'll show up here.</li>
+  </ol>
+  <ul>
+    <li><b>Music Order:</b> Each song added by your guest will be prioritized higher than the playlist you're playing. Within the wished songs, they're sorted chronologically.</li>
+    <li><b>Play/Pause:</b> This will start/stop the party. If playing is active here, it means auxcord.org controls your sound system. If it's inactive, you can still manually play songs through the Sonos app.</li>
+    <li><b>Queue:</b> A list of songs that will be played next, wished for by your guests. Once that queue is empty, your playlist will continue</li>
+    <li><b>Arrow buttons (volume):</b> Control the volume of your sound system. The same volume will be set across all speakers. If you try to change the volume using the Sonos app or using the hardware buttons, the volume will automatically be reverted back to the original.</li>
+    <li><b>Speaker Group:</b> At the moment auxcord will automatically use the group with the highest number of speakers. Use the Sonos app to add all speakers into a single group.</li>
+  </ul>
 </div>
 
 <%= erb :"js/_party.js", layout: false %>

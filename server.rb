@@ -39,7 +39,7 @@ module SonosPartyMode
     def initialize
       super
 
-      puts 'Booting up Jukebox and refreshing auth tokens...'
+      puts 'Booting up auxcord.org and refreshing auth tokens...'
 
       # General
       RSpotify.authenticate(ENV.fetch('SPOTIFY_CLIENT_ID'), ENV.fetch('SPOTIFY_CLIENT_SECRET'))

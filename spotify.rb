@@ -39,7 +39,7 @@ module SonosPartyMode
       # Find or create the Party playlist
       playlist_id = database_row.fetch(:playlist_id)
       unless playlist_id
-        playlist = spotify_user.create_playlist!("#{user_id} Jukebox for Sonos - Don't Delete")
+        playlist = spotify_user.create_playlist!("#{user_id} auxcord.org - Don't Delete")
         playlist_id = playlist.id
         prepare_welcome_playlist_song!(playlist)
 
@@ -83,7 +83,7 @@ module SonosPartyMode
 
       next_song = queued_songs.shift
       if next_song.nil?
-        puts 'No more Jukebox songs in queue...'
+        puts 'No more auxcord songs in queue...'
         return false
       end
       past_songs << next_song
