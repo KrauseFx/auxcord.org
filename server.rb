@@ -103,8 +103,9 @@ module SonosPartyMode
     get '/assets/*' do
       if [
         '/assets/reader.png',
-        '/assets/add-to-sonos-menu.png',
-        '/assets/add-to-sonos-search.png',
+        '/assets/add-to-sonos-1.png',
+        '/assets/add-to-sonos-2.png',
+        '/assets/add-to-sonos-3.png',
         '/assets/favicon.ico',
         '/assets/favicon-16x16.ico',
         '/assets/favicon-32x32.ico',
@@ -137,7 +138,7 @@ module SonosPartyMode
         @already_submitted = params['submitted'].to_s == 'true'
         return erb :add_playlist_to_favs
       else
-        erb :party, locals: pd
+        return erb :party, locals: pd
       end
     end
 
