@@ -1,20 +1,108 @@
 <% if @logged_out %>
   <h1>Successfully deleted all Sonos & Spotify tokens, and logged out</h1>
   <hr style="margin-bottom: 50px;" />
-<% else %>
-  <h1>Aux cord</h1>
 <% end %>
 
-<h3>Connect Sonos</h3>
+<div id="container">
+  <h1>Auxcord.org</h1>
+  <p id="subtitle-slogan">
+    Let friends queue their music at your party
+  </p>
 
-<% if @sonos_login_url %>
-  <a href="<%= @sonos_login_url %>">Connect Sonos</a>
-<% else %>
-  <h3>☑️ Sonos successfully connected</h3>
-<% end %>
+  <img src="/assets/logo.png" id="logo" />
 
-<h3>Connect Spotify</h3>
+  <ul id="context">
+    <li>You host a party</li>
+    <li>You play a playlist</li>
+    <li>Friend wishes song</li>
+    <li>You give them your phone</li>
+    <li>Your playlist stops</li>
+    <li>They change volume</li>
+    <li>Song over</li>
+    <li>Your playlist gone</li>
+    <li>Party dead</li>
+  </ul>
 
-<% if @spotify_login_url %>
-  <a href="<%= @spotify_login_url %>">Connect Spotify</a>
-<% end %>
+  <hr />
+
+  <p><b>Auxcord.org is a simple, free service:</b></p>
+  
+  Simply connect your Sonos and Spotify account, and manage your party in one spot:
+  <ul id="features">
+    <li>Never replace the currently playing song: always queue</li>
+    <li>Your guests can use any phone to add songs</li>
+    <li>Your guests don't need any account or login</li>
+    <li>When guests press speaker buttons (pause, volume), it's automatically reverted</li>
+    <li>Share a link or QR code ahead of time, so guests can pre-queue</li>
+    <li>Prevent the same song from being played twice</li>
+  </ul>
+
+  <hr />
+
+  <p>Currently, Aux cord works with Sonos & Spotify.</p>
+  <p><a href="https://twitter.com/KrauseFx">Drop me a message</a> if you're interested in a Spotify-only mode.</p>
+
+  <h3>Step 1: Connect Sonos</h3>
+
+  <% if @sonos_login_url %>
+    <a href="<%= @sonos_login_url %>">Connect Sonos</a>
+  <% else %>
+    <h3>☑️ Sonos successfully connected</h3>
+  <% end %>
+
+  <h3>Step 2: Connect Spotify</h3>
+
+  <% if @spotify_login_url %>
+    <a href="<%= @spotify_login_url %>">Connect Spotify</a>
+  <% end %>
+
+  TODO: Sign up for Spotify-only mode
+</div>
+
+<style type="text/css">
+  #logo {
+    width: 300px;
+    border: 3px solid #333;
+  }
+  #container {
+    width: 350px;
+    margin: auto;
+    margin-top: 50px;
+    padding: 20px;
+    background-color: #eee;
+    border-radius: 10px;
+    box-shadow: 3px 3px 20px rgba(0, 0, 0, 0.7);
+  }
+  h1 {
+    margin-top: -5px;
+  }
+  #subtitle-slogan {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 30px;
+    margin-top: -12px;
+    margin-bottom: 20px;
+  }
+  #context > li {
+    list-style-type: none;
+  }
+  #context {
+    margin-bottom: 30px;
+    margin-top: 30px;
+  }
+  hr {
+    border: 0;
+    height: 1px;
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(40, 40, 40, 0.3), rgba(0, 0, 0, 0));
+    margin-bottom: 20px;
+    background-color: transparent !important;
+    opacity: 0.6;
+  }
+  #features {
+    margin-left: -20px;
+    margin-right: -10px;
+  }
+  #features > li {
+    padding-bottom: 10px;
+  }
+</style>

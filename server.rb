@@ -110,7 +110,8 @@ module SonosPartyMode
         '/assets/favicon-32x32.ico',
         '/assets/apple-touch-icon.png',
         '/assets/android-chrome-512x512',
-        '/assets/android-chrome-192x192'
+        '/assets/android-chrome-192x192',
+        '/assets/logo.png',
       ].include?(request.path)
         return send_file File.join('views', request.path)
       else
