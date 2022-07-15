@@ -1,7 +1,7 @@
 <script type="text/javascript">
   function refreshAutocomplete() {
     console.log("Sending auto-complete request")
-    let ids = window.location.pathname.replace("/party/join/", "")
+    let ids = window.location.pathname.replace("/p/", "")
     var song = document.getElementById('song-input').value;
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/spotify/search/' + ids + '?song_name=' + song, true);
@@ -42,6 +42,8 @@
           alert(text);
           document.getElementById('song-input').value = '';
           document.getElementById('song-list').innerHTML = ""
+          // reload page
+          window.location.reload();
         } else {
           alert("Something went wrong queuing this song")
         }

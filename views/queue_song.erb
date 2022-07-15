@@ -1,10 +1,25 @@
 <h1>Jukebox for Sonos</h1>
 
+<% if @queued_songs.count > 0 %>
+  <div id="queue">
+    <h3>Next Songs</h3>
+    <ul id="queue-list">
+      <% @queued_songs.each do |song| %>
+        <li class="queue-entry">
+          <img class="queue-image" src="<%= song[:album_cover] %>" />
+          <span><%= song[:name] %> - <%= song[:artists] %></span>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>
+
 <div id="loading-div">
   <h3>Adding song to Jukebox...</h3>
   <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
 </div>
 
+<h3>Play your own song:</h3>
 <input type="text" name="song" value="" placeholder="Enter Song Name" id="song-input"> 
 <ul id="song-list"></ul>
 

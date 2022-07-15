@@ -195,16 +195,11 @@ module SonosPartyMode
 
       # Generate the invite URL
       host = "#{request.scheme}://#{request.host}#{request.port == 4567 ? ":#{request.port}" : ''}"
-      party_join_link = "#{host}/party/join/#{session[:user_id]}/#{spotify_playlist_id}"
+      party_join_link = "#{host}/p/#{session[:user_id]}/#{spotify_playlist_id}"
 
       # Prepare all other variables needed to render the host dashboard
       volume = sonos_instance.database_row.fetch(:volume)
       party_on = sonos_instance.party_session_active
-
-      queued_songs = spotify_instance.queued_songs.dup # `.dup` to not modify the actual queue
-
-      # Manually prefix the most recently queued song, as it's already in the Sonos queue
-      queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count.positive? && sonos_instance.currently_playing_guest_wished_song
 
       sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
       groups = sonos_groups.collect do |group|
@@ -223,16 +218,7 @@ module SonosPartyMode
         selected_group: selected_group,
         groups: groups,
         party_on: party_on,
-        queued_songs: queued_songs.collect do |track|
-          {
-            album_cover: track.album.images[-1]['url'],
-            name: track.name,
-            artists: track.artists.map(&:name).join(', '),
-            id: track.id.to_s,
-            duration: track.duration_ms.to_i / 1000,
-            uri: track.uri
-          }
-        end,
+        queued_songs: queued_songs_json(spotify_instance, sonos_instance),
         current_image_url: current_image_url,
         next_image_url: next_image_url,
         current_song_details: current_song_details,
@@ -308,21 +294,26 @@ module SonosPartyMode
     # Guest code
     # -----------------------
 
-    get '/party/join/:user_id/:playlist_id' do
+    get '/p/:user_id/:playlist_id' do
       @title = 'Queue a Song'
 
       # No auth here, we just verify the 2 IDs
-      spotify_playlist = spotify_instances[params[:user_id].to_i].party_playlist
+      spotify_instance = spotify_instances[params[:user_id].to_i]
+      spotify_playlist = spotify_instance.party_playlist
       if spotify_playlist.id != params[:playlist_id]
         redirect '/'
         return
       end
 
+      # Fetch the current queue, so we can render it
+      sonos_instance = sonos_instances[params[:user_id].to_i]
+      @queued_songs = queued_songs_json(spotify_instance, sonos_instance)
+
       erb :queue_song
     end
 
     # User submitted a song request
-    post '/party/join/:user_id/:playlist_id/:song_id' do
+    post '/p/:user_id/:playlist_id/:song_id' do
       content_type :json
 
       user_id = params[:user_id].to_i
@@ -579,6 +570,25 @@ module SonosPartyMode
 
     def spotify_instances
       GlobalState[:spotify_instances]
+    end
+
+    # Others
+    def queued_songs_json(spotify_instance, sonos_instance)
+      queued_songs = spotify_instance.queued_songs.dup # `.dup` to not modify the actual queue
+
+      # Manually prefix the most recently queued song, as it's already in the Sonos queue
+      queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count.positive? && sonos_instance.currently_playing_guest_wished_song
+
+      return queued_songs.collect do |track|
+        {
+          album_cover: track.album.images[-1]['url'],
+          name: track.name,
+          artists: track.artists.map(&:name).join(', '),
+          id: track.id.to_s,
+          duration: track.duration_ms.to_i / 1000,
+          uri: track.uri
+        }
+      end
     end
 
     run!
