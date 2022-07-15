@@ -45,14 +45,10 @@ module SonosPartyMode
       subscribe_to_playback_metadata
     end
 
-    # TODO: resubscribe when group was changed
-    # TODO: unsuscribe on server shutdown etc
     def subscribe_to_playback
       client_control_request("/groups/#{group_to_use}/playback/subscription", method: :post)
     end
 
-    # TODO: resubscribe when group was changed
-    # TODO: unsuscribe on server shutdown etc
     def subscribe_to_playback_metadata
       client_control_request("/groups/#{group_to_use}/playbackMetadata/subscription", method: :post)
     end
