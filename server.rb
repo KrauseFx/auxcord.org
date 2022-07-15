@@ -76,7 +76,7 @@ module SonosPartyMode
 
       @logged_out = params[:logged_out]
 
-      if SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count.zero?
+      if session[:user_id].nil? || SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count.zero?
         redirect_uri = "#{HOST_URL}/sonos/authorized.html"
         @sonos_login_url = 'https://api.sonos.com/login/v3/oauth?' \
                            "client_id=#{ENV.fetch('SONOS_KEY')}&" \
