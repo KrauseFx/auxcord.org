@@ -39,9 +39,6 @@
 
   <hr />
 
-  <p>Currently, Aux cord works with Sonos & Spotify.</p>
-  <p><a href="https://twitter.com/KrauseFx">Drop me a message</a> if you're interested in a Spotify-only mode.</p>
-
   <h3 class="steps <%= @sonos_login_url.nil?? 'step-completed' : '' %>">
     <%= @sonos_login_url.nil?? "✓" : "" %> 
     &nbsp;Step 1: Connect Sonos
@@ -58,6 +55,12 @@
   <% end %>
 
   <h3 class="steps">Step 3: Host party</h3>
+  <hr />
+
+  <p>Currently, Aux cord works with Sonos & Spotify.</p>
+  <p>Want to use Aux cord without Sonos? Enter your email address to be informed once it's ready!</p>
+  <%= erb :"partials/_newsletter.html", layout: false %>
+  <p>Only product announcement emails, you can unsubscribe any time. Or follow me on <a href="https://twitter.com/KrauseFx" target="_blank">Twitter</a>.</p>
 </div>
 
 <style type="text/css">
@@ -120,6 +123,7 @@
   #features {
     margin-left: -20px;
     margin-right: -10px;
+    margin-bottom: 0px;
   }
   #features > li {
     padding-bottom: 10px;
