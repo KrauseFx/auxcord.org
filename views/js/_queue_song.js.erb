@@ -46,6 +46,10 @@
           document.getElementById('song-list').innerHTML = ""
           // reload page
           window.location.reload();
+        } else if (response.error) {
+          alert(response.error);
+          document.getElementById('song-input').value = '';
+          document.getElementById('song-list').innerHTML = ""
         } else {
           alert("Something went wrong queuing this song")
         }

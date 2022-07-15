@@ -72,9 +72,7 @@ module SonosPartyMode
     end
 
     # This method will add songs to the queue (playlist) on Spotify, but not yet add it to the Sonos queue
-    def add_song_to_queue(song)
-      # Verify we haven't queued this song before # TODO
-      # return if previously_queued_songs.include?(song.id)
+    def add_song_to_queue(song)      
       queued_songs << song
     end
 

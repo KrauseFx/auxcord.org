@@ -328,11 +328,16 @@ module SonosPartyMode
       end
 
       # Queue that song
-      spotify_instance.add_song_to_queue(spotify_instance.find_song(params.fetch(:song_id)))
-
-      current_metadata = sonos_instance.playback_metadata
-      next_object_id = current_metadata.fetch('nextItem')['track']['id']['objectId'] # e.g. spotify:track:01LcEnzRdYXfpJmmLPmdMz
-      # TODO: Implement
+      song_to_queue = spotify_instance.find_song(params.fetch(:song_id))
+      
+      # Verify we haven't already played this song
+      if queued_songs_json(spotify_instance, sonos_instance).any? { |song| song[:id] == song_to_queue.id.to_s }
+        return {
+          success: false,
+          error: 'Song was already played, or is already in the queue'
+        }.to_json
+      end
+      spotify_instance.add_song_to_queue(song_to_queue)
 
       # Check if we can queue right away, or if we have to wait for the next song to start
       # This basically means, that no user wished song is currently playing, but the default playlist only
@@ -550,6 +555,7 @@ module SonosPartyMode
 
       # To make sure the user actually has the full link, and the IDs match
       return { error: 'Unauthorized' }.to_json if spotify_playlist.id != params[:playlist_id]
+      return {}.to_json if song_name.to_s.strip.empty?
 
       puts "Searching for Spotify song using name #{song_name}"
       songs = spotify_instances[user_id].search_for_song(song_name)
