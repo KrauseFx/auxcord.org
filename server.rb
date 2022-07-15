@@ -1,5 +1,6 @@
 require "sinatra/base"
 require "rspotify"
+require "pry"
 require "rqrcode"
 require_relative "./sonos"
 require_relative "./spotify"
@@ -300,6 +301,8 @@ module SonosPartyMode
 
       Db.sonos_tokens.where(user_id: session[:user_id]).delete
       Db.spotify_tokens.where(user_id: session[:user_id]).delete
+      Db.users.where(id: session[:user_id]).delete
+      session.delete(:user_id)
 
       redirect "/?logged_out=true"
     end
@@ -374,15 +377,37 @@ module SonosPartyMode
       # First, create a new user
       user_id = SonosPartyMode::Db.users.insert
 
-      # Then store this inside the session
-      session[:user_id] = user_id
-
       # Now process the Sonos login
       authorization_code = params.fetch(:code)
       new_sonos = SonosPartyMode::Sonos.new(
         user_id: user_id,
         authorization_code: authorization_code
       )
+
+      # Now look if we have an existing auth for that user
+      # If there is, we gotta delete the 2 entries we just made
+      # and use the existing one instead
+      # we do this only because the initializer also takes care of the db write
+      # and a refactor would be too much work atm
+      primary_household = new_sonos.primary_household
+      existing_entries = SonosPartyMode::Db.sonos_tokens.where(household: primary_household)
+      entries_without_matching_spotify = existing_entries.to_a.find_all do |sonos_entry|
+        SonosPartyMode::Db.spotify_tokens.where(user_id: sonos_entry[:user_id]).count == 0
+      end
+      if existing_entries.count > entries_without_matching_spotify.count
+        # Now delete all those entries, as one of the Sonos instances got a Spotify session attached
+        entries_without_matching_spotify.each do |sonos_entry|
+          SonosPartyMode::Db.sonos_tokens.where(id: sonos_entry[:id]).delete
+          SonosPartyMode::Db.users.where(id: user_id).delete
+        end
+        sonos_db_entry = SonosPartyMode::Db.sonos_tokens.where(household: primary_household).first
+        new_sonos = SonosPartyMode::Sonos.new(user_id: sonos_db_entry[:user_id])
+
+        raise "Something went wrong here #{primary_household}... Sonos session" if new_sonos.nil?
+      end
+
+      # Then store this inside the session, and update `sonos_instances`
+      session[:user_id] = new_sonos.user_id
       sonos_instances[user_id] = new_sonos
 
       redirect "/"

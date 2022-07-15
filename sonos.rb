@@ -6,7 +6,6 @@ module SonosPartyMode
   class Sonos
     # Basic attributes
     attr_accessor :user_id
-    attr_accessor :session_id
     attr_accessor :party_session_active
     attr_accessor :group_to_use
     
@@ -261,6 +260,10 @@ module SonosPartyMode
       )
 
       response = JSON.parse(response.body)
+      puts "sonos api response: #{response}"
+      if response["error"].to_s.length > 0
+        raise response["error"]
+      end
       access_token = response.fetch("access_token")
       refresh_token = response.fetch("refresh_token")
       
@@ -271,6 +274,7 @@ module SonosPartyMode
         refresh_token: refresh_token,
         expires_in: response.fetch("expires_in"),
       )
+      Db.sonos_tokens.where(user_id: user_id).update(household: primary_household)
     end
   end
 end
