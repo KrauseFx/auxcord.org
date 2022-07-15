@@ -17,6 +17,8 @@
           html += '</li>';
         }
         document.getElementById('song-list').innerHTML = html;
+      } else {
+        document.getElementById('song-list').innerHTML = ""
       }
     };
     xhr.send();
