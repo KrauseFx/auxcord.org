@@ -66,3 +66,8 @@ for the SONOS webhooks
 ### Hosting
 
 This is hosted on https://railway.com/ at the time of writing
+
+### Meme
+
+- https://knowyourmeme.com/memes/hand-me-the-aux-cord
+- https://knowyourmeme.com/memes/when-you-give-x-the-aux-cord
