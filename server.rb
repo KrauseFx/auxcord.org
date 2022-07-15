@@ -7,9 +7,9 @@ require_relative './sonos'
 require_relative './spotify'
 require_relative './db'
 
-global_state = {}
-global_state[:spotify_instances] = {}
-global_state[:sonos_instances] = {}
+GlobalState = {}
+GlobalState[:spotify_instances] = {}
+GlobalState[:sonos_instances] = {}
 
 module SonosPartyMode
   class Server < Sinatra::Base
@@ -574,11 +574,11 @@ module SonosPartyMode
 
     # Caching state
     def sonos_instances
-      global_state[:sonos_instances]
+      GlobalState[:sonos_instances]
     end
 
     def spotify_instances
-      global_state[:spotify_instances]
+      GlobalState[:spotify_instances]
     end
 
     run!
