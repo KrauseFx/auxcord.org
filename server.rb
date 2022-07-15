@@ -560,11 +560,20 @@ module SonosPartyMode
       puts "Searching for Spotify song using name #{song_name}"
       songs = spotify_instances[user_id].search_for_song(song_name)
       return songs.collect do |song|
+        audio_features = song.audio_features
         {
           id: song.id,
           name: song.name,
           artists: song.artists.collect(&:name),
-          thumbnail: song.album.images[1]['url']
+          thumbnail: song.album.images[1]['url'],
+          danceability: audio_features.danceability,
+          energy: audio_features.energy,
+          tempo: audio_features.tempo,
+          loudness: audio_features.loudness,
+          liveness: audio_features.liveness,
+          acousticness: audio_features.acousticness,
+          speechiness: audio_features.speechiness,
+          valence: audio_features.valence,
         }
       end.to_json
     end
