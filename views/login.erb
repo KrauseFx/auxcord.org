@@ -11,33 +11,37 @@
 
   <img src="/assets/logo.png" id="logo" />
 
-  <ul id="context">
-    <li>You host a party</li>
-    <li>You play a playlist</li>
-    <li>Friend wishes song</li>
-    <li>You give them your phone</li>
-    <li>Your playlist stops</li>
-    <li>They change volume</li>
-    <li>Song over</li>
-    <li>Your playlist gone</li>
-    <li>Party dead</li>
-  </ul>
+  <% unless @spotify_login_url %>
+    <ul id="context">
+      <li>You host a party</li>
+      <li>You play a playlist</li>
+      <li>Friend wishes song</li>
+      <li>You give them your phone</li>
+      <li>Your playlist stops</li>
+      <li>They change volume</li>
+      <li>Song over</li>
+      <li>Your playlist gone</li>
+      <li>Party dead</li>
+    </ul>
+
+    <hr />
+
+    <p><b>Auxcord.org is a simple, free service:</b></p>
+    
+    Simply connect your Sonos and Spotify account, and manage your party in one spot:
+    <ul id="features">
+      <li>Never replace the currently playing song: always queue</li>
+      <li>Your guests can use any phone to add songs</li>
+      <li>Your guests don't need any account or login</li>
+      <li>When guests press speaker buttons (pause, volume), it's automatically reverted</li>
+      <li>Share a link or QR code ahead of time, so guests can pre-queue</li>
+      <li>Prevent the same song from being played twice</li>
+    </ul>
+  <% end %>
 
   <hr />
 
-  <p><b>Auxcord.org is a simple, free service:</b></p>
-  
-  Simply connect your Sonos and Spotify account, and manage your party in one spot:
-  <ul id="features">
-    <li>Never replace the currently playing song: always queue</li>
-    <li>Your guests can use any phone to add songs</li>
-    <li>Your guests don't need any account or login</li>
-    <li>When guests press speaker buttons (pause, volume), it's automatically reverted</li>
-    <li>Share a link or QR code ahead of time, so guests can pre-queue</li>
-    <li>Prevent the same song from being played twice</li>
-  </ul>
-
-  <hr />
+  <h3 style="margin-top: 0px; text-decoration: underline;">Start using auxcord</h3>
 
   <h3 class="steps <%= @sonos_login_url.nil?? 'step-completed' : '' %>">
     <%= @sonos_login_url.nil?? "✓" : "" %> 
@@ -55,67 +59,72 @@
   <% end %>
 
   <h3 class="steps">Step 3: Host party</h3>
-  <hr />
+  <% unless @spotify_login_url %>
+    <hr />
 
-  <div id="meme-carousel">
-    <span>
-      <a href="https://knowyourmeme.com/memes/hand-me-the-aux-cord" target="_blank">
-        <img src="/assets/memes/1.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://knowyourmeme.com/photos/857554-hand-me-the-aux-cord" target="_blank">
-        <img src="/assets/memes/2.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://knowyourmeme.com/memes/hand-me-the-aux-cord/photos/page/4" target="_blank">
-        <img src="/assets/memes/3.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://ifunny.co/tags/aux/1452999957" target="_blank">
-        <img src="/assets/memes/4.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://me.me/i/me-yo-pass-the-aux-cord-friend-u-better-not-14158947" target="_blank">
-        <img src="/assets/memes/10.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://ifunny.co/meme/hen-ya-homie-passes-you-the-aux-cord-spongebob-jelly-uQkzVHQz3?s=cl" target="_blank">
-        <img src="/assets/memes/6.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://twitter.com/peakmemes/status/768681985644650496" target="_blank">
-        <img src="/assets/memes/7.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://ahseeit.com/?qa=171590/when-my-friends-pass-me-the-aux-cord-meme" target="_blank">
-        <img src="/assets/memes/8.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://www.facebook.com/theCHIVE/photos/a.10150308726511742/10156092117431742/?type=3" target="_blank">
-        <img src="/assets/memes/9.png" />
-      </a>
-    </span>
-    <span>
-      <a href="https://ifunny.co/tags/aux/1467562257" target="_blank">
-        <img src="/assets/memes/5.png" />
-      </a>
-    </span>
-  </div>
+    <div id="meme-carousel">
+      <span>
+        <a href="https://knowyourmeme.com/memes/hand-me-the-aux-cord" target="_blank">
+          <img src="/assets/memes/1.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://knowyourmeme.com/photos/857554-hand-me-the-aux-cord" target="_blank">
+          <img src="/assets/memes/2.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://knowyourmeme.com/memes/hand-me-the-aux-cord/photos/page/4" target="_blank">
+          <img src="/assets/memes/3.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://ifunny.co/tags/aux/1452999957" target="_blank">
+          <img src="/assets/memes/4.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://me.me/i/me-yo-pass-the-aux-cord-friend-u-better-not-14158947" target="_blank">
+          <img src="/assets/memes/10.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://ifunny.co/meme/hen-ya-homie-passes-you-the-aux-cord-spongebob-jelly-uQkzVHQz3?s=cl" target="_blank">
+          <img src="/assets/memes/6.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://twitter.com/peakmemes/status/768681985644650496" target="_blank">
+          <img src="/assets/memes/7.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://ahseeit.com/?qa=171590/when-my-friends-pass-me-the-aux-cord-meme" target="_blank">
+          <img src="/assets/memes/8.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://www.facebook.com/theCHIVE/photos/a.10150308726511742/10156092117431742/?type=3" target="_blank">
+          <img src="/assets/memes/9.png" />
+        </a>
+      </span>
+      <span>
+        <a href="https://ifunny.co/tags/aux/1467562257" target="_blank">
+          <img src="/assets/memes/5.png" />
+        </a>
+      </span>
+    </div>
 
-  <hr />
+    <hr />
 
-  <p>Currently, Aux cord works with Sonos & Spotify.</p>
-  <p>Want to use Aux cord without Sonos? Enter your email address to be informed once it's ready!</p>
-  <%= erb :"partials/_newsletter.html", layout: false %>
-  <p>Only product announcement emails, you can unsubscribe any time. Or follow me on <a href="https://twitter.com/KrauseFx" target="_blank">Twitter</a>.</p>
+    <p>Currently, Aux cord works with Sonos & Spotify.</p>
+    <p>Want to use Aux cord without Sonos? Enter your email address to be informed once it's ready!</p>
+    <%= erb :"partials/_newsletter.html", layout: false %>
+    <p>Only product announcement emails, you can unsubscribe any time. Or follow me on <a href="https://twitter.com/KrauseFx" target="_blank">Twitter</a>.</p>
+    <% if @sonos_login_url %>
+      <p>Have Sonos & Spotify? <b><a class="" href="<%= @sonos_login_url %>">Get started</a></b> today!</p>
+    <% end %>
+  <% end %>
 </div>
 
 <%= erb :"css/_login.css", layout: false %>
