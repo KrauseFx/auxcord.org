@@ -1,0 +1,29 @@
+<script type="text/javascript">
+  document.addEventListener("DOMContentLoaded", function(event) { 
+    carousel = document.getElementById('meme-carousel');
+
+    // Scroll the carousel
+    var direction = 1;
+    var directionBackup = null;
+
+    setInterval(function() {
+      carousel.scrollLeft += direction;
+      if (carousel.scrollLeft == 0) {
+        if (direction != 0) { direction = 1; }
+        else { directionBackup = 1 }
+      } else if (carousel.scrollLeft == carousel.scrollWidth - carousel.clientWidth) {
+        if (direction != 0) { direction = -1; }
+        else { directionBackup = -1 }
+      }
+    }, 15);
+
+    // Stop the scroll of the carousel during mouseover
+    carousel.addEventListener('mouseover', function() {
+      if (direction != 0) { directionBackup = direction; }
+      direction = 0;
+    });
+    carousel.addEventListener('mouseout', function() {
+      if (directionBackup != null) { direction = directionBackup; }
+    });
+  });
+</script>
