@@ -2,6 +2,11 @@
   document.addEventListener("DOMContentLoaded", function(event) { 
     carousel = document.getElementById('meme-carousel');
 
+    // Randomize order of all images in the carousel
+    for (var i = carousel.children.length; i >= 0; i--) {
+        carousel.appendChild(carousel.children[Math.random() * i | 0]);
+    }
+
     // Scroll the carousel
     var direction = 1;
     var directionBackup = null;
