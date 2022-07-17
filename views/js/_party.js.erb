@@ -80,6 +80,7 @@
     didSendSkipRequest = true;
     setTimeout(function() {
       didSendSkipRequest = false
+      document.getElementById("next-song-button").style.backgroundColor = "rgba(255, 255, 255, 0.95)";
     }, 1500);
     sendUpdateRequest("skip_song=true");
   }

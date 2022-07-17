@@ -229,7 +229,6 @@ module SonosPartyMode
       content_type :png
 
       party_join_link = party_data.fetch(:party_join_link)
-      puts party_join_link
       # Generate a QR code for the invite URL
       qr_code = RQRCode::QRCode.new(party_join_link)
       png = qr_code.as_png(
