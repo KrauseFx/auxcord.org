@@ -2,12 +2,10 @@
   function refreshUI(data, initialLoad) {
     if (data["nothing_playing"]) {
       document.getElementById("nothing-playing").style.display = "block";
-      document.getElementById("jukebox-outline").style.display = "none";
       document.getElementById("custom-group").innerHTML = '"' + data["group_to_use"] + '"';
       return;
     } else {
       document.getElementById("nothing-playing").style.display = "none";
-      document.getElementById("jukebox-outline").style.display = "block";
     }
 
     // document.getElementById("volume-label").innerHTML = data["volume"];

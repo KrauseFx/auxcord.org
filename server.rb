@@ -102,7 +102,7 @@ module SonosPartyMode
 
     get '/assets/*' do
       if [
-        '/assets/reader.png',
+        '/assets/aux-cable.png',
         '/assets/add-to-sonos-1.png',
         '/assets/add-to-sonos-2.png',
         '/assets/add-to-sonos-3.png',

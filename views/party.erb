@@ -6,51 +6,52 @@
   <p>Play the music for the group named <span id="custom-group"></span></p>
 </div>
 
-<div id="jukebox-outline">
-  <div id="jukebox-innerline"></div>
-  <div id="volume-container">
-    <button onclick="volumeDown()">
-      <%= erb :"svgs/_button-arrow-left.svg", layout: false %>
-    </button>
-    <input type="range" min="0" max="100" value="" class="slider" id="volume-slider">
-    <span id="volume-label"></span>
-    <button onclick="volumeUp()">
-      <%= erb :"svgs/_button-arrow-right.svg", layout: false %>
-    </button>
-  </div>
-  
+
+<div id="currently-playing">
   <img id="currently-playing-cover">
   <img id="playing-next-cover">
-  <img src="/assets/reader.png" id="cover-reader" />
-  <hr id="bar" />
   <p id="currently-playing-title"></p>
-  <div id="media-controls">
-    <div id="empty-control"></div>
-    <button id="pause-play-button">
-      <span id="svg-play"><%= erb :"svgs/_button-play.svg", layout: false %></span>
-      <span id="svg-pause"><%= erb :"svgs/_button-pause.svg", layout: false %></span>
-    </button>
-    <button id="next-song-button" onclick="skipSong()">
-      <%= erb :"svgs/_button-skip.svg", layout: false %>
-    </button>
-  </div>
-  <div id="queue">
-    <p id="no-songs-text">
-      Share the link or QR code below with your friends for them to queue songs
-    </p>
-    <ul id="queue-list"></ul>
-  </div>
+</div>
 
-  <div id="qr-code"></div>
-  <p id="party-join-link"><a target="_blank"></a></p>
+<div id="media-controls">
+  <button id="pause-play-button">
+    <span id="svg-play"><%= erb :"svgs/_button-play.svg", layout: false %></span>
+    <span id="svg-pause"><%= erb :"svgs/_button-pause.svg", layout: false %></span>
+  </button>
+  <button id="next-song-button" onclick="skipSong()">
+    <%= erb :"svgs/_button-skip.svg", layout: false %>
+  </button>
+</div>
+
+<img src="/assets/aux-cable.png" id="aux-cable" />
+
+<div id="queue">
+  <p id="no-songs-text">
+    Share the link or QR code below with your friends for them to queue songs
+  </p>
+  <ul id="queue-list"></ul>
+</div>
+<div id="qr-code"></div>
+<p id="party-join-link"><a target="_blank"></a></p>
+<div id="volume-container">
+  <button onclick="volumeDown()">
+    <%= erb :"svgs/_button-arrow-left.svg", layout: false %>
+  </button>
+  <input type="range" min="0" max="100" value="" class="slider" id="volume-slider">
+  <span id="volume-label"></span>
+  <button onclick="volumeUp()">
+    <%= erb :"svgs/_button-arrow-right.svg", layout: false %>
+  </button>
+</div>
+  
   <button id="groups-button">
     <% # erb :"svgs/_button-groups.svg", layout: false %>
   </button>
-</div>
 
 <%# <div id="groups-div"></div> %>
 
 <div id="instruction">
+  <p>How to use auxcord</p>
   <ol>
     <li>Group all the speakers you want to use</li>
     <li>Play your Party playlist through the Sonos app</li>
@@ -58,6 +59,7 @@
     <li>Start the party mode on this page</li>
     <li>As your guests add new songs, they'll show up here.</li>
   </ol>
+  <p>auxcord explained</p>
   <ul>
     <li><b>Music Order:</b> Each song added by your guest will be prioritized higher than the playlist you're playing. Within the wished songs, they're sorted chronologically.</li>
     <li><b>Play/Pause:</b> This will start/stop the party. If playing is active here, it means auxcord.org controls your sound system. If it's inactive, you can still manually play songs through the Sonos app.</li>
