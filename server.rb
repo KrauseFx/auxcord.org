@@ -239,7 +239,6 @@ module SonosPartyMode
         use_path: true,
         bit_depth: 1,
         color_mode: ChunkyPNG::COLOR_GRAYSCALE,
-        color: "black",
         file: nil,
         fill: "white",
         module_px_size: 6,
@@ -413,6 +412,16 @@ module SonosPartyMode
         new_sonos = SonosPartyMode::Sonos.new(user_id: sonos_db_entry[:user_id])
 
         raise "Something went wrong here #{primary_household}... Sonos session" if new_sonos.nil?
+      elsif existing_entries.count > 1
+        # Delete all the entries besides the most recent one
+        # As we have half-onboarded tokens here for some reason
+        oldest_entry = existing_entries.to_a.sort_by { |entry| entry[:id] }.first
+        existing_entries.to_a.each do |sonos_entry|
+          next if sonos_entry[:id] == oldest_entry[:id]
+          SonosPartyMode::Db.sonos_tokens.where(id: sonos_entry[:id]).delete
+          SonosPartyMode::Db.users.where(id: user_id).delete
+        end
+        new_sonos = SonosPartyMode::Sonos.new(user_id: oldest_entry[:user_id])
       end
 
       # Then store this inside the session, and update `sonos_instances`
