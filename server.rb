@@ -124,7 +124,7 @@ module SonosPartyMode
     # -----------------------
 
     get '/party' do
-      @title = 'Party Host'
+      @title = 'Host'
       unless all_sessions?
         redirect '/'
         return
