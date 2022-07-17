@@ -410,6 +410,7 @@ module SonosPartyMode
         end
         sonos_db_entry = SonosPartyMode::Db.sonos_tokens.where(household: primary_household).first
         new_sonos = SonosPartyMode::Sonos.new(user_id: sonos_db_entry[:user_id])
+        user_id = sonos_db_entry[:user_id]
 
         raise "Something went wrong here #{primary_household}... Sonos session" if new_sonos.nil?
       elsif existing_entries.count > 1
@@ -422,10 +423,11 @@ module SonosPartyMode
           SonosPartyMode::Db.users.where(id: user_id).delete
         end
         new_sonos = SonosPartyMode::Sonos.new(user_id: oldest_entry[:user_id])
+        user_id = oldest_entry[:user_id]
       end
 
       # Then store this inside the session, and update `sonos_instances`
-      session[:user_id] = new_sonos.user_id
+      session[:user_id] = user_id
       sonos_instances[user_id] = new_sonos
 
       redirect '/'
