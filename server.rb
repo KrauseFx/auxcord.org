@@ -347,6 +347,7 @@ module SonosPartyMode
       
       # Verify we haven't already played this song
       if queued_songs_json(spotify_instance, sonos_instance).any? { |song| song[:id] == song_to_queue.id.to_s }
+        puts "Already played this song"
         return {
           success: false,
           error: 'Song was already played, or is already in the queue'
@@ -356,6 +357,7 @@ module SonosPartyMode
 
       # Check if we can queue right away, or if we have to wait for the next song to start
       # This basically means, that no user wished song is currently playing, but the default playlist only
+      puts "sonos_instance.currently_playing_guest_wished_song: #{sonos_instance.currently_playing_guest_wished_song}"
       if sonos_instance.currently_playing_guest_wished_song
         return {
           success: true,
@@ -484,12 +486,7 @@ module SonosPartyMode
 
           # We queue the next song (after this one's finished)
           puts 'Queue the new song now'
-          sonos_instance.currently_playing_guest_wished_song = if spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
-                                                                 true
-                                                               else
-                                                                 false
-                                                               end
-
+          sonos_instance.currently_playing_guest_wished_song = spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
           sonos_instance.current_item_id = info.fetch('itemId')
         end
 
