@@ -233,7 +233,7 @@ module SonosPartyMode
       # Generate a QR code for the invite URL
       qr_code = RQRCode::QRCode.new(party_join_link)
       png = qr_code.as_png(
-        color: '000',
+        color: 'black',
         shape_rendering: 'crispEdges',
         module_size: 3,
         standalone: true,
