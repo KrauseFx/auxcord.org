@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-
 require 'sinatra/base'
 require 'rspotify'
 require 'rqrcode'
@@ -213,9 +212,6 @@ module SonosPartyMode
       end.sort_by { |group| group[:number_of_speakers] }.reverse
       selected_group = sonos_instance.group_to_use
 
-      # Generate a QR code for the invite URL
-      qr_code = RQRCode::QRCode.new(party_join_link)
-
       return {
         selected_group: selected_group,
         groups: groups,
@@ -225,15 +221,33 @@ module SonosPartyMode
         next_image_url: next_image_url,
         current_song_details: current_song_details,
         volume: volume,
-        party_join_link: party_join_link,
-        qr_code: qr_code.as_svg(
-          color: '000',
-          shape_rendering: 'crispEdges',
-          module_size: 3,
-          standalone: true,
-          use_path: true
-        )
+        party_join_link: party_join_link
       }
+    end
+
+    get "/qr_code.png" do
+      content_type :png
+
+      party_join_link = party_data.fetch(:party_join_link)
+      # Generate a QR code for the invite URL
+      qr_code = RQRCode::QRCode.new(party_join_link)
+      png = qr_code.as_png(
+        color: '000',
+        shape_rendering: 'crispEdges',
+        module_size: 3,
+        standalone: true,
+        use_path: true,
+        bit_depth: 1,
+        color_mode: ChunkyPNG::COLOR_GRAYSCALE,
+        color: "black",
+        file: nil,
+        fill: "white",
+        module_px_size: 6,
+        resize_exactly_to: false,
+        resize_gte_to: false,
+        size: 300
+      )
+      return png.to_blob
     end
 
     post '/party/host/update' do
