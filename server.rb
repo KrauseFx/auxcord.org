@@ -381,7 +381,6 @@ module SonosPartyMode
     # -----------------------
     # Sonos Specific Code
     # -----------------------
-
     get '/sonos/authorized.html' do
       # So, this user is serious, they onboarded Sonos, so we now create an entry for them
       # First, create a new user
