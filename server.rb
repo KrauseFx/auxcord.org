@@ -516,11 +516,17 @@ module SonosPartyMode
         # Pre-load the song's information from Spotify to get the album cover and other details
         # which is used by the party host's dashboard, reducing the load time from 5s to 0.5s
         # Even not assigning the variable, this is a cache
-        current_spotify_object_id = info['currentItem']['track']['id']['objectId']
-        spotify_instance.find_song(current_spotify_object_id)
+        if info['currentItem'] && info['currentItem']["track"] && info['currentItem']['track']["id"]
+          current_spotify_object_id = info['currentItem']['track']['id']['objectId']
+          spotify_instance.find_song(current_spotify_object_id)
+        end
 
-        next_spotify_object_id = info['nextItem']['track']['id']['objectId']
-        spotify_instance.find_song(next_spotify_object_id)
+        if info['nextItem'] && info['nextItem']['track'] && info['nextItem']['track']["id"]
+          next_spotify_object_id = info['nextItem']['track']['id']['objectId']
+          spotify_instance.find_song(next_spotify_object_id)
+        end
+        # the `info` `track` entries are `nil` when there is no playlist playing atm
+        # this is handled already with `#nothing-playing`
       end
 
       # Respond to Sonos

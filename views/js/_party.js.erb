@@ -3,8 +3,10 @@
     if (data["nothing_playing"]) {
       document.getElementById("nothing-playing").style.display = "block";
       document.getElementById("custom-group").innerHTML = '"' + data["group_to_use"] + '"';
+      document.getElementById("everything-else").style.display = "none";
       return;
     } else {
+      document.getElementById("everything-else").style.display = "block";
       document.getElementById("nothing-playing").style.display = "none";
     }
 
