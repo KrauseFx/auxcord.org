@@ -162,7 +162,7 @@ module SonosPartyMode
       spotify_playlist_id = spotify_playlist.id
 
       playback_metadata = sonos_instance.playback_metadata
-      if playback_metadata['currentItem']['track']['id'].nil?
+      if Hash(Hash(playback_metadata.fetch('currentItem', nil)).fetch('track')).fetch('id', nil).nil?
         sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
         # Nothing playing
         return {
