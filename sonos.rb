@@ -31,6 +31,8 @@ module SonosPartyMode
       @target_volume = database_row[:volume] # default volume is defined as part of `db.rb`
       @group_to_use = database_row[:group]
       groups_cached = groups
+      return if groups_cached.nil? # no household
+
       unless groups_cached.collect { |a| a['id'] }.include?(@group_to_use)
         # The group ID doesn't exist any more, fallback to the default one (most speakers)
         @group_to_use = groups_cached.sort_by { |a| a['playerIds'].count }.reverse.first.fetch('id')
@@ -159,7 +161,7 @@ module SonosPartyMode
     # ----------------
 
     def primary_household
-      @_primary_household ||= households.first.fetch('id')
+      @_primary_household ||= households.first.fetch('id', nil)
     end
 
     def households
@@ -167,6 +169,7 @@ module SonosPartyMode
     end
 
     def groups
+      return nil if primary_household.nil?
       client_control_request("/households/#{primary_household}/groups").fetch('groups')
     end
 

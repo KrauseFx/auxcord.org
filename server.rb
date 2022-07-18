@@ -407,6 +407,14 @@ module SonosPartyMode
       # we do this only because the initializer also takes care of the db write
       # and a refactor would be too much work atm
       primary_household = new_sonos.primary_household
+      if primary_household.nil?
+        # User doesn't actually have a sonos system attached
+        # Delete the entry again
+        Db.sonos_tokens.where(user_id: user_id).delete
+        Db.users.where(id: user_id).delete
+        redirect "/?error=no_sonos_system"
+        return;
+      end
       existing_entries = SonosPartyMode::Db.sonos_tokens.where(household: primary_household)
       entries_without_matching_spotify = existing_entries.to_a.find_all do |sonos_entry|
         SonosPartyMode::Db.spotify_tokens.where(user_id: sonos_entry[:user_id]).count.zero?

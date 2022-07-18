@@ -1,5 +1,18 @@
 <% if @logged_out %>
-  <h1>Successfully deleted all Sonos & Spotify tokens, and logged out</h1>
+  <div id="flash">
+    <h1>Successfully deleted all Sonos & Spotify tokens, and logged out</h1>
+  </div>
+  <hr style="margin-bottom: 50px;" />
+<% end %>
+
+<% if params["error"] %>
+  <div id="flash">
+    <h1>
+      <% if params["error"] == "no_sonos_system" %>
+        Looks like your Sonos account isn't connected to a household.
+      <% end %>
+    </h1>
+  </div>
   <hr style="margin-bottom: 50px;" />
 <% end %>
 
