@@ -161,7 +161,7 @@ module SonosPartyMode
     # ----------------
 
     def primary_household
-      @_primary_household ||= households.first.fetch('id', nil)
+      @_primary_household ||= Hash(households.first).fetch('id', nil)
     end
 
     def households
