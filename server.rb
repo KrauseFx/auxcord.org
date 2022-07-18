@@ -194,10 +194,6 @@ module SonosPartyMode
         }
       end
 
-      # Generate the invite URL
-      host = "#{request.scheme}://#{request.host}#{request.port == 4567 ? ":#{request.port}" : ''}"
-      party_join_link = "#{host}/p/#{session[:user_id]}/#{spotify_playlist_id}"
-
       # Prepare all other variables needed to render the host dashboard
       volume = sonos_instance.database_row.fetch(:volume)
       party_on = sonos_instance.party_session_active
@@ -221,14 +217,25 @@ module SonosPartyMode
         next_image_url: next_image_url,
         current_song_details: current_song_details,
         volume: volume,
-        party_join_link: party_join_link
+        party_join_link: generate_invite_url(request, spotify_playlist_id)
       }
+    end
+
+    def generate_invite_url(request, spotify_playlist_id)
+      # Generate the invite URL
+      host = "#{request.scheme}://#{request.host}#{request.port == 4567 ? ":#{request.port}" : ''}"
+      return "#{host}/p/#{session[:user_id]}/#{spotify_playlist_id}"
     end
 
     get "/qr_code.png" do
       content_type :png
+      cache_control :no_cache
+      headers("Pragma" => "no-cache", "Expires" => "0")
 
-      party_join_link = party_data.fetch(:party_join_link)
+      spotify_instance = spotify_instances[session[:user_id]]
+      spotify_playlist = spotify_instance.party_playlist
+      party_join_link = generate_invite_url(request, spotify_playlist.id)
+
       # Generate a QR code for the invite URL
       qr_code = RQRCode::QRCode.new(party_join_link)
       png = qr_code.as_png(
