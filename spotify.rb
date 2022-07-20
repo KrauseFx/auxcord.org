@@ -39,9 +39,15 @@ module SonosPartyMode
       # Find or create the Party playlist
       playlist_id = database_row.fetch(:playlist_id)
       unless playlist_id
+        puts "Creating new playlist for user id #{user_id}"
         playlist = spotify_user.create_playlist!("#{user_id} auxcord.org - Don't Delete")
         playlist_id = playlist.id
         prepare_welcome_playlist_song!(playlist)
+        puts "Finished creating playlist with id #{playlist_id}"
+
+        # Verify that the playlist was created and contains one song
+        playlist = spotify_user.playlist(playlist_id)
+        raise 'Playlist was not created' if playlist.tracks.count == 0
 
         # Remember the Spotify playlist ID
         Db.spotify_tokens.where(user_id: user_id).update(playlist_id: playlist_id) # use full query syntax
