@@ -46,7 +46,6 @@ module SonosPartyMode
         puts "Finished creating playlist with id #{playlist_id}"
 
         # Verify that the playlist was created and contains one song
-        playlist = spotify_user.playlist(playlist_id)
         raise 'Playlist was not created' if playlist.tracks.count == 0
 
         # Remember the Spotify playlist ID
