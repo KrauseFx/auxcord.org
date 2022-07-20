@@ -22,3 +22,11 @@ https://auxcord.org
 https://auxcord.org creates a new Spotify playlist to manage the queue by the party guests. This is used to store the queue, and have the next songs ready to be played. Each wished song gets added to that playlist.
 ```
 
+# Credentials
+
+Sonos Credentials:
+krausefx@gmail.com
+...
+
+
+
