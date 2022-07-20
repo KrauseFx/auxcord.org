@@ -112,6 +112,7 @@ module SonosPartyMode
         '/assets/android-chrome-512x512',
         '/assets/android-chrome-192x192',
         '/assets/logo.png',
+        '/assets/spotify-logo.png'
       ].include?(request.path) || request.path.start_with?('/assets/memes/')
         return send_file File.join('views', request.path)
       else
@@ -208,6 +209,8 @@ module SonosPartyMode
       end.sort_by { |group| group[:number_of_speakers] }.reverse
       selected_group = sonos_instance.group_to_use
 
+      spotify_url = current_spotify_track.external_urls['spotify']
+
       return {
         selected_group: selected_group,
         groups: groups,
@@ -217,7 +220,8 @@ module SonosPartyMode
         next_image_url: next_image_url,
         current_song_details: current_song_details,
         volume: volume,
-        party_join_link: generate_invite_url(request, spotify_playlist_id)
+        party_join_link: generate_invite_url(request, spotify_playlist_id),
+        spotify_url: spotify_url
       }
     end
 
