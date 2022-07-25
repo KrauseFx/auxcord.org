@@ -161,7 +161,20 @@ module SonosPartyMode
     # ----------------
 
     def primary_household
-      @_primary_household ||= Hash(households.first).fetch('id', nil)
+      return @_primary_household if @_primary_household
+
+      # I don't have an account with multiple households, but for now let's just access the household
+      # with the highest number of speakers associated
+      household_speakers = households.collect do |household|
+        household_groups = client_control_request("/households/#{household['id']}/groups").fetch('groups', nil)
+
+        [
+          household["id"],
+          household_groups.collect { |a| a["playerIds"] }.flatten.count
+        ]
+      end.to_h
+      
+      @_primary_household = household_speakers.max_by { |k, v| v }.first
     end
 
     def households
