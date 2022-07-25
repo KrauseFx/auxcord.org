@@ -28,5 +28,34 @@ Sonos Credentials:
 krausefx@gmail.com
 ...
 
+# Display Data
 
+No
 
+# Policies
+
+None of the above
+
+# Recommendations
+
+No
+
+# Intent to sell app?
+
+No
+
+# Public?
+
+Yes
+
+# Markets
+
+All
+
+# Which API/SDK?
+
+Web API
+
+# Software runs on
+
+Desktop, Smartphone
