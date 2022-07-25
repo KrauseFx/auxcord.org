@@ -170,7 +170,7 @@ module SonosPartyMode
 
     def groups
       return nil if primary_household.nil?
-      client_control_request("/households/#{primary_household}/groups").fetch('groups')
+      client_control_request("/households/#{primary_household}/groups").fetch('groups', nil)
     end
 
     # private
