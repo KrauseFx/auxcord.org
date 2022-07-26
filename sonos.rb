@@ -62,7 +62,9 @@ module SonosPartyMode
 
     def playback_metadata
       # this is cached from the Sonos subscription
-      return @_playback_metadata if @_playback_metadata && @_playback_metadata['currentItem']['track']['id']
+      if @_playback_metadata && @_playback_metadata['currentItem'] && @_playback_metadata['currentItem']['track'] && @_playback_metadata['currentItem']['track']['id']
+        return @_playback_metadata
+      end
 
       # fallback, in case we didn't get a Sonos message yet. I confirmed it's the exact same data
       return client_control_request("groups/#{group_to_use}/playbackMetadata")
