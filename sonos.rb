@@ -188,7 +188,6 @@ module SonosPartyMode
       client_control_request("/households/#{primary_household}/groups").fetch('groups', nil)
     end
 
-    # private
     def access_token
       database_row.fetch(:access_token)
     end
