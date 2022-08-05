@@ -26,12 +26,16 @@ module SonosPartyMode
     def load_tokens_from_db
       # Boot up code: load existing sessions into the `session` instances
       SonosPartyMode::Db.users.each do |user|
-        sonos_obj = SonosPartyMode::Sonos.new(user_id: user[:id])
-        spotify_obj = SonosPartyMode::Spotify.new(user_id: user[:id])
+        begin
+          sonos_obj = SonosPartyMode::Sonos.new(user_id: user[:id])
+          spotify_obj = SonosPartyMode::Spotify.new(user_id: user[:id])
 
-        # Important to check if there is an actual entry, since otherwise there will be empty objects in those hashes
-        sonos_instances[user[:id]] ||= sonos_obj unless sonos_obj.database_row.nil?
-        spotify_instances[user[:id]] ||= spotify_obj unless spotify_obj.database_row.nil?
+          # Important to check if there is an actual entry, since otherwise there will be empty objects in those hashes
+          sonos_instances[user[:id]] ||= sonos_obj unless sonos_obj.database_row.nil?
+          spotify_instances[user[:id]] ||= spotify_obj unless spotify_obj.database_row.nil?
+        rescue => ex
+          puts ex
+        end
       end
     end
 
