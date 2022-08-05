@@ -175,14 +175,27 @@ module SonosPartyMode
           group_to_use: sonos_groups.find { |a| a['id'] == sonos_instance.group_to_use }['name']
         }
       end
-      current_spotify_object_id = playback_metadata['currentItem']['track']['id']['objectId']
-      current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
-      current_image_url = current_spotify_track.album.images[1]['url'] if current_spotify_track
-      current_song_details = playback_metadata['currentItem']['track']
+      current_spotify_object_id = playback_metadata['currentItem']['track']['id']['objectId'] rescue nil
+      if current_spotify_object_id
+        current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
+        current_image_url = current_spotify_track.album.images[1]['url'] if current_spotify_track
+      else
+        current_spotify_track = nil
+        current_image_url = nil
+      end
+      current_song_details = playback_metadata['currentItem']['track'] rescue nil
+      if current_song_details.nil?
+        current_song_details = { "name" => "Unknown"}
+      end
 
-      next_spotify_object_id = playback_metadata['nextItem']['track']['id']['objectId']
-      next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
-      next_image_url = next_spotify_track.album.images[1]['url'] if next_spotify_track
+      next_spotify_object_id = playback_metadata['nextItem']['track']['id']['objectId'] rescue nil
+      if next_spotify_object_id
+        next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
+        next_image_url = next_spotify_track.album.images[1]['url'] if next_spotify_track
+      else
+        next_spotify_track = nil
+        next_image_url = nil
+      end
 
       sonos_instance_playlist = sonos_instance.ensure_playlist_in_favorites(spotify_playlist_id,
                                                                             force_refresh: params['submitted'].to_s == 'true')
