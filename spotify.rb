@@ -69,6 +69,9 @@ module SonosPartyMode
 
     # Search for a specific Spotify song using the Spotify ID, including a local cache
     def find_song(song_id)
+      return nil if song_id.to_s.length == 0
+      return nil unless song_id.include?("spotify")
+
       song_id.gsub!('spotify:track:', '')
       @_song_cache ||= {}
       return @_song_cache[song_id] if @_song_cache[song_id]

@@ -173,12 +173,12 @@ module SonosPartyMode
       end
       current_spotify_object_id = playback_metadata['currentItem']['track']['id']['objectId']
       current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
-      current_image_url = current_spotify_track.album.images[1]['url']
+      current_image_url = current_spotify_track.album.images[1]['url'] if current_spotify_track
       current_song_details = playback_metadata['currentItem']['track']
 
       next_spotify_object_id = playback_metadata['nextItem']['track']['id']['objectId']
       next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
-      next_image_url = next_spotify_track.album.images[1]['url']
+      next_image_url = next_spotify_track.album.images[1]['url'] if next_spotify_track
 
       sonos_instance_playlist = sonos_instance.ensure_playlist_in_favorites(spotify_playlist_id,
                                                                             force_refresh: params['submitted'].to_s == 'true')
@@ -354,7 +354,7 @@ module SonosPartyMode
       end
 
       # Queue that song
-      song_to_queue = spotify_instance.find_song(params.fetch(:song_id))
+      song_to_queue = spotify_instance.find_song("spotify:track:" + params.fetch(:song_id))
       
       # Verify we haven't already played this song
       if queued_songs_json(spotify_instance, sonos_instance).any? { |song| song[:id] == song_to_queue.id.to_s }
