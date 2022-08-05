@@ -226,7 +226,7 @@ module SonosPartyMode
       end.sort_by { |group| group[:number_of_speakers] }.reverse
       selected_group = sonos_instance.group_to_use
 
-      spotify_url = current_spotify_track.external_urls['spotify']
+      spotify_url = spotify_url ? current_spotify_track.external_urls['spotify'] : nil
 
       return {
         selected_group: selected_group,
