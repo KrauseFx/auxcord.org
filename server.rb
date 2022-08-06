@@ -371,7 +371,7 @@ module SonosPartyMode
       end
 
       # Queue that song
-      song_to_queue = spotify_instance.find_song("spotify:track:" + params.fetch(:song_id))
+      song_to_queue = spotify_instance.find_song(params.fetch(:song_id))
       
       # Verify we haven't already played this song
       if queued_songs_json(spotify_instance, sonos_instance).any? { |song| song[:id] == song_to_queue.id.to_s }
