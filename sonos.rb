@@ -78,6 +78,10 @@ module SonosPartyMode
         fav['resource']['type'] == 'PLAYLIST' &&
         fav['resource']['id']['objectId'].include?(spotify_playlist_id)
       end
+    rescue => ex
+      puts "fav playlist error"
+      puts ex.message
+      return nil
     end
 
     def ensure_current_sonos_settings!
