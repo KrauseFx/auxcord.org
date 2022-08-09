@@ -78,6 +78,8 @@ module SonosPartyMode
       @_song_cache[song_id] = RSpotify::Track.find(song_id)
     rescue => ex
       puts ex
+      puts ex.backtrace.join("\n")
+      puts "Using song_id #{song_id}"
       nil
     end
 

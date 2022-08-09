@@ -34,7 +34,8 @@ module SonosPartyMode
           sonos_instances[user[:id]] ||= sonos_obj unless sonos_obj.database_row.nil?
           spotify_instances[user[:id]] ||= spotify_obj unless spotify_obj.database_row.nil?
         rescue => ex
-          puts ex
+          puts ex.to_s
+          puts ex.backtrace.join("\n")
         end
       end
     end
