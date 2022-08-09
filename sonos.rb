@@ -181,6 +181,10 @@ module SonosPartyMode
       end.to_h
       
       @_primary_household = household_speakers.max_by { |k, v| v }.first
+    rescue => ex
+      puts ex
+      puts ex.backtrace.join("\n")
+      @_primary_household ||= households.first
     end
 
     def households
