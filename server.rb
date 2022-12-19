@@ -79,6 +79,7 @@ module SonosPartyMode
       @title = 'Login'
 
       @logged_out = params[:logged_out]
+      @number_of_parties = SonosPartyMode::Db.users.count
 
       if session[:user_id].nil? || SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count.zero?
         redirect_uri = "#{HOST_URL}/sonos/authorized.html"
