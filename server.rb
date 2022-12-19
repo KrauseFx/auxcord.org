@@ -34,10 +34,12 @@ module SonosPartyMode
           sonos_instances[user[:id]] ||= sonos_obj unless sonos_obj.database_row.nil?
           spotify_instances[user[:id]] ||= spotify_obj unless spotify_obj.database_row.nil?
         rescue => ex
+          puts "Catching exception during bootup: #{ex.class}"
           puts ex.to_s
           puts ex.backtrace.join("\n")
         end
       end
+      puts "Finished booting up #{sonos_instances.count} Sonos instances and #{spotify_instances.count} Spotify instances"
     end
 
     def initialize
