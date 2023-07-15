@@ -1,9 +1,7 @@
 version: "2.20"
 services:
   app:
-    build:
-      context: .
-    # image: xxx
+    image: KrauseFx/auxcord.org:latest
     restart: always
     env_file:
       - .env
