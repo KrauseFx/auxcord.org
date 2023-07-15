@@ -29,6 +29,16 @@ A simple web-app, that does the following
 
 There are many additional features we could build (like pre-queuing songs before a party), but for now, we want to get the basics right first
 
+# Self-hosted deployment
+## Docker 
+1. Copy the file `docker-compose.yml` to the directory you will use for your deployment
+2. Copy the file `.env.example` to the same directory and rename it to `.env`
+3. Fill the values in the `.env` file
+4. Run `docker-compose up -d`
+5. The project web UI will be available at 0.0.0.0:4597. You can then use a reverse proxy like Traefik to use HTTPS and other configurations with your domain.
+
+Note: Database files will be saved to the selected directory, under `./data` (see the `volumes` section of the `docker-compose.yml` file)
+
 ## Requirements to use this project
 
 1. A Sonos sound system
