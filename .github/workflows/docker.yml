@@ -10,7 +10,6 @@ on:
   pull_request:
     branches:
       - "master"
-      - "add-gh-actions"
 jobs:
   docker:
     runs-on: ubuntu-latest
