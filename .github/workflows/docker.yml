@@ -3,8 +3,6 @@ name: Docker
 # Trigger only when releasing a new version
 on:
   push:
-    branches:
-      - "**"
     tags:
       - "v*.*.*"
   pull_request:
@@ -33,12 +31,9 @@ jobs:
             ghcr.io/${{ github.repository }}
           # generate Docker tags based on the following events/attributes
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha
       
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
