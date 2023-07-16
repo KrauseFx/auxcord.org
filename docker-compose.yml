@@ -1,0 +1,20 @@
+version: "3.8"
+services:
+  app:
+    image: KrauseFx/auxcord.org:latest
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - "DATABASE_URL=${DB_SCHEME}://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    ports:
+      - 4567:4567
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - "POSTGRES_USER=${DB_USERNAME}"
+      - "POSTGRES_PASSWORD=${DB_PASSWORD}"
+      - "POSTGRES_DB=${DB_NAME}"
+    volumes:
+      - ./data:/var/lib/postgresql/data
