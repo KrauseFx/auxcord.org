@@ -22,6 +22,7 @@ module SonosPartyMode
 
     # Server Config
     set :bind, '0.0.0.0'
+    set :show_exceptions, false
 
     def load_tokens_from_db
       # Boot up code: load existing sessions into the `session` instances
