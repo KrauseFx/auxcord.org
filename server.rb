@@ -2,6 +2,9 @@
 require 'sinatra/base'
 require 'rspotify'
 require 'rqrcode'
+require 'openssl'
+require 'base64'
+require 'securerandom'
 require_relative './sonos'
 require_relative './spotify'
 require_relative './db'
@@ -56,14 +59,28 @@ module SonosPartyMode
       # Ongoing background thread to monitor all Sonos systems
       Thread.new do
         loop do
-          ensure_current_sonos_settings!
+          sonos_instances.each do |user_id, sonos|
+            begin
+              sonos.ensure_current_sonos_settings!
+            rescue => ex
+              puts "Failed to enforce Sonos settings for user #{user_id}"
+              puts ex
+              puts ex.backtrace.join("\n")
+            end
+          end
           sleep(2)
         end
       end
       Thread.new do
         loop do
-          sonos_instances.each do |_user_id, sonos|
-            sonos.refresh_caches
+          sonos_instances.each do |user_id, sonos|
+            begin
+              sonos.refresh_caches
+            rescue => ex
+              puts "Failed to refresh Sonos caches for user #{user_id}"
+              puts ex
+              puts ex.backtrace.join("\n")
+            end
           end
           sleep(15)
         end
@@ -78,6 +95,131 @@ module SonosPartyMode
       return sonos_instances[session[:user_id]] && spotify_instances[session[:user_id]]
     end
 
+    def csrf_token
+      session[:csrf_token] ||= SecureRandom.hex(32)
+    end
+
+    def verify_csrf_token!
+      submitted_token = params[:csrf_token].to_s
+      submitted_token = request.env.fetch('HTTP_X_CSRF_TOKEN', '').to_s if submitted_token.empty?
+      halt 403, 'Invalid CSRF token' if submitted_token.empty?
+      halt 403, 'Invalid CSRF token' unless submitted_token.bytesize == csrf_token.bytesize &&
+                                            Rack::Utils.secure_compare(submitted_token, csrf_token)
+    end
+
+    def verify_sonos_callback_signature!(raw_body)
+      signing_key = ENV.fetch('SONOS_SECRET', '').to_s
+      return if signing_key.empty?
+
+      provided_signature = request.env.fetch('HTTP_X_SONOS_EVENT_SIGNATURE', '').to_s
+      halt 401, 'Missing Sonos event signature' if provided_signature.empty?
+
+      expected_signature = Base64.strict_encode64(
+        OpenSSL::HMAC.digest('sha256', signing_key, raw_body)
+      )
+      halt 401, 'Invalid Sonos event signature' unless provided_signature.bytesize == expected_signature.bytesize &&
+                                                      Rack::Utils.secure_compare(provided_signature, expected_signature)
+    end
+
+    def remove_user_from_memory!(user_id)
+      sonos_instances.delete(user_id)
+      spotify_instances.delete(user_id)
+    end
+
+    def queue_snapshot_tracks(spotify_instance, sonos_instance)
+      queued_songs = spotify_instance.queued_songs.dup
+      queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count.positive? &&
+                                                                 sonos_instance.currently_playing_guest_wished_song
+      queued_songs.compact
+    end
+
+    def track_to_json(track)
+      album_images = track.album.images || []
+      album_image = album_images.last || album_images.first
+      {
+        album_cover: album_image && album_image['url'],
+        name: track.name,
+        artists: track.artists.map(&:name).join(', '),
+        id: track.id.to_s,
+        duration: track.duration_ms.to_i / 1000,
+        uri: track.uri
+      }
+    end
+
+    def json_for_script(data)
+      json = data.is_a?(String) ? data : data.to_json
+      json.gsub('<', '\u003c').gsub('>', '\u003e').gsub('&', '\u0026')
+    end
+
+    def process_sonos_callback(raw_body:, sonos_group_id:)
+      info = JSON.parse(raw_body)
+      puts "Received Sonos Web API callback for #{sonos_group_id}"
+
+      filtered_instances = sonos_instances.values.find_all { |instance| instance.group_to_use == sonos_group_id }
+      if filtered_instances.count.zero?
+        puts "Couldn't find the Sonos instance for #{sonos_group_id}"
+        return
+      end
+
+      spotify_instance = nil
+      sonos_instance = nil
+      filtered_instances.each do |instance|
+        spotify_candidate = spotify_instances[instance.user_id]
+        next if spotify_candidate.nil?
+
+        spotify_instance = spotify_candidate
+        sonos_instance = instance
+        break
+      end
+      if spotify_instance.nil?
+        puts "Couldn't find the Spotify instance for #{filtered_instances}"
+        return
+      end
+
+      puts "\n\nSonos Notification\n\n"
+      puts JSON.pretty_generate(info)
+      puts "\n\n"
+
+      if info['playbackState'] && !%w[PLAYBACK_STATE_PLAYING
+                                      PLAYBACK_STATE_BUFFERING].include?(info.fetch('playbackState'))
+        puts 'user paused the group...'
+        sonos_instance.play_music! if sonos_instance.party_session_active
+      end
+
+      if info['itemId']
+        spotify_instance.queue_mutex.synchronize do
+          transitioned_to_new_song = sonos_instance.current_item_id != info.fetch('itemId') &&
+                                     sonos_instance.current_item_id == info.fetch('previousItemId')
+
+          sonos_instance.current_item_id = info.fetch('itemId')
+
+          if transitioned_to_new_song
+            puts 'Queue the new song now'
+            queued_successfully = spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+            sonos_instance.currently_playing_guest_wished_song = queued_successfully
+          end
+        end
+      end
+
+      if info['container']
+        sonos_instance.did_receive_new_playback_metadata(info)
+
+        if info['currentItem'] && info['currentItem']['track'] && info['currentItem']['track']['id']
+          current_spotify_object_id = info['currentItem']['track']['id']['objectId']
+          spotify_instance.find_song(current_spotify_object_id)
+        end
+
+        if info['nextItem'] && info['nextItem']['track'] && info['nextItem']['track']['id']
+          next_spotify_object_id = info['nextItem']['track']['id']['objectId']
+          spotify_instance.find_song(next_spotify_object_id)
+        end
+      end
+    rescue => ex
+      puts "Failed to process Sonos callback for #{sonos_group_id}"
+      puts ex
+      puts ex.backtrace.join("\n")
+    end
+
     get '/' do
       @title = 'Login'
 
@@ -85,11 +227,12 @@ module SonosPartyMode
       @number_of_parties = SonosPartyMode::Db.users.count
 
       if session[:user_id].nil? || SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count.zero?
+        session[:sonos_state_key] = SecureRandom.hex(32)
         redirect_uri = "#{HOST_URL}/sonos/authorized.html"
         @sonos_login_url = 'https://api.sonos.com/login/v3/oauth?' \
                            "client_id=#{ENV.fetch('SONOS_KEY')}&" \
                            'response_type=code&' \
-                           'state=TESTSTATE&' \
+                           "state=#{session[:sonos_state_key]}&" \
                            'scope=playback-control-all&' \
                            "redirect_uri=#{ERB::Util.url_encode(redirect_uri)}"
         return erb :login
@@ -103,8 +246,14 @@ module SonosPartyMode
     end
 
     def ensure_current_sonos_settings!
-      sonos_instances.each do |_user_id, sonos|
-        sonos.ensure_current_sonos_settings!
+      sonos_instances.each do |user_id, sonos|
+        begin
+          sonos.ensure_current_sonos_settings!
+        rescue => ex
+          puts "Failed to ensure Sonos settings for user #{user_id}"
+          puts ex
+          puts ex.backtrace.join("\n")
+        end
       end
     end
 
@@ -115,11 +264,11 @@ module SonosPartyMode
         '/assets/add-to-sonos-2.png',
         '/assets/add-to-sonos-3.png',
         '/assets/favicon.ico',
-        '/assets/favicon-16x16.ico',
-        '/assets/favicon-32x32.ico',
+        '/assets/favicon-16x16.png',
+        '/assets/favicon-32x32.png',
         '/assets/apple-touch-icon.png',
-        '/assets/android-chrome-512x512',
-        '/assets/android-chrome-192x192',
+        '/assets/android-chrome-512x512.png',
+        '/assets/android-chrome-192x192.png',
         '/assets/logo.png',
         '/assets/spotify-logo.png'
       ].include?(request.path) || request.path.start_with?('/assets/memes/')
@@ -147,7 +296,7 @@ module SonosPartyMode
         @already_submitted = params['submitted'].to_s == 'true'
         return erb :add_playlist_to_favs
       else
-        return erb :party, locals: pd
+        return erb :party, locals: pd.merge(initial_party_data: pd)
       end
     end
 
@@ -167,6 +316,7 @@ module SonosPartyMode
     def party_data
       spotify_instance = spotify_instances[session[:user_id]]
       sonos_instance = sonos_instances[session[:user_id]]
+      return { redirect: '/' } if spotify_instance.nil? || sonos_instance.nil?
 
       spotify_playlist = spotify_instance.party_playlist
       spotify_playlist_id = spotify_playlist.id
@@ -174,16 +324,18 @@ module SonosPartyMode
       playback_metadata = sonos_instance.playback_metadata
       if Hash(Hash(playback_metadata.fetch('currentItem', nil)).fetch('track', nil)).fetch('id', nil).nil?
         sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
+        selected_group = sonos_groups&.find { |group| group['id'] == sonos_instance.group_to_use }
         # Nothing playing
         return {
           nothing_playing: true,
-          group_to_use: sonos_groups.find { |a| a['id'] == sonos_instance.group_to_use }['name']
+          group_to_use: selected_group ? selected_group['name'] : 'Unknown group'
         }
       end
       current_spotify_object_id = playback_metadata['currentItem']['track']['id']['objectId'] rescue nil
       if current_spotify_object_id
         current_spotify_track = spotify_instance.find_song(current_spotify_object_id)
-        current_image_url = current_spotify_track.album.images[1]['url'] if current_spotify_track
+        current_image = current_spotify_track&.album&.images&.[](1) || current_spotify_track&.album&.images&.last
+        current_image_url = current_image && current_image['url']
       else
         current_spotify_track = nil
         current_image_url = nil
@@ -196,7 +348,8 @@ module SonosPartyMode
       next_spotify_object_id = playback_metadata['nextItem']['track']['id']['objectId'] rescue nil
       if next_spotify_object_id
         next_spotify_track = spotify_instance.find_song(next_spotify_object_id)
-        next_image_url = next_spotify_track.album.images[1]['url'] if next_spotify_track
+        next_image = next_spotify_track&.album&.images&.[](1) || next_spotify_track&.album&.images&.last
+        next_image_url = next_image && next_image['url']
       else
         next_spotify_track = nil
         next_image_url = nil
@@ -222,7 +375,7 @@ module SonosPartyMode
       party_on = sonos_instance.party_session_active
 
       sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
-      groups = sonos_groups.collect do |group|
+      groups = Array(sonos_groups).collect do |group|
         {
           name: group.fetch('name'),
           id: group.fetch('id'),
@@ -287,6 +440,7 @@ module SonosPartyMode
         redirect '/'
         return
       end
+      verify_csrf_token!
 
       sonos = sonos_instances[session[:user_id]]
 
@@ -313,9 +467,8 @@ module SonosPartyMode
         # First, pause playback at the current group
         sonos.pause_playback!
 
-        # Update the currently used group in the database, as well as the current session
-        Db.sonos_tokens.where(user_id: session[:user_id]).update(group: params[:group_to_use]) # now, store in db for next run, important to use full query
-        sonos.group_to_use = params[:group_to_use]
+        available_group_ids = Array(sonos.groups_cached || sonos.groups).map { |group| group['id'] }
+        sonos.group_to_use = params[:group_to_use] if available_group_ids.include?(params[:group_to_use])
 
         # Now, trigger playing on the new group
         sonos.ensure_music_playing! if sonos.party_session_active # but only if the party is currently active
@@ -325,14 +478,21 @@ module SonosPartyMode
     end
 
     get '/logout' do
+      redirect '/'
+    end
+
+    post '/logout' do
       unless all_sessions?
         redirect '/'
         return
       end
+      verify_csrf_token!
 
-      Db.sonos_tokens.where(user_id: session[:user_id]).delete
-      Db.spotify_tokens.where(user_id: session[:user_id]).delete
-      Db.users.where(id: session[:user_id]).delete
+      user_id = session[:user_id]
+      Db.sonos_tokens.where(user_id: user_id).delete
+      Db.spotify_tokens.where(user_id: user_id).delete
+      Db.users.where(id: user_id).delete
+      remove_user_from_memory!(user_id)
       session.delete(:user_id)
 
       redirect '/?logged_out=true'
@@ -347,6 +507,12 @@ module SonosPartyMode
 
       # No auth here, we just verify the 2 IDs
       spotify_instance = spotify_instances[params[:user_id].to_i]
+      sonos_instance = sonos_instances[params[:user_id].to_i]
+      if spotify_instance.nil? || sonos_instance.nil?
+        redirect '/'
+        return
+      end
+
       spotify_playlist = spotify_instance.party_playlist
       if spotify_playlist.id != params[:playlist_id]
         redirect '/'
@@ -354,7 +520,6 @@ module SonosPartyMode
       end
 
       # Fetch the current queue, so we can render it
-      sonos_instance = sonos_instances[params[:user_id].to_i]
       @queued_songs = queued_songs_json(spotify_instance, sonos_instance)
 
       erb :queue_song
@@ -366,56 +531,80 @@ module SonosPartyMode
 
       user_id = params[:user_id].to_i
       spotify_instance = spotify_instances[user_id]
-      spotify_playlist = spotify_instance.party_playlist
       sonos_instance = sonos_instances[user_id]
+      if spotify_instance.nil? || sonos_instance.nil?
+        status 404
+        return { success: false, error: 'This party is no longer available' }.to_json
+      end
+
+      spotify_playlist = spotify_instance.party_playlist
 
       # To make sure the user actually has the full link, and the IDs match
       if spotify_playlist.id != params[:playlist_id]
-        redirect '/'
-        return
+        status 403
+        return { success: false, error: 'Unauthorized' }.to_json
       end
 
       # Queue that song
       song_to_queue = spotify_instance.find_song(params.fetch(:song_id))
-      
-      # Verify we haven't already played this song
-      if queued_songs_json(spotify_instance, sonos_instance).any? { |song| song[:id] == song_to_queue.id.to_s }
-        puts "Already played this song"
+      if song_to_queue.nil?
+        status 404
         return {
           success: false,
-          error: 'Song was already played, or is already in the queue'
+          error: 'This Spotify song is no longer available'
         }.to_json
       end
-      spotify_instance.add_song_to_queue(song_to_queue)
 
-      # Check if we can queue right away, or if we have to wait for the next song to start
-      # This basically means, that no user wished song is currently playing, but the default playlist only
-      puts "sonos_instance.currently_playing_guest_wished_song: #{sonos_instance.currently_playing_guest_wished_song}"
-      if sonos_instance.currently_playing_guest_wished_song
-        return {
-          success: true,
-          position: spotify_instance.queued_songs.count
-        }.to_json
-      else
-        if spotify_instance.queued_songs.count != 1
-          puts 'Something went wrong'
-          puts spotify_instance.queued_songs
+      result = spotify_instance.queue_mutex.synchronize do
+        existing_track_ids = (spotify_instance.queued_songs + spotify_instance.past_songs).filter_map { |track| track&.id.to_s }
+        if existing_track_ids.include?(song_to_queue.id.to_s)
+          puts 'Already played this song'
+          {
+            success: false,
+            error: 'Song was already played, or is already in the queue'
+          }
+        else
+          spotify_instance.add_song_to_queue(song_to_queue)
+
+          puts "sonos_instance.currently_playing_guest_wished_song: #{sonos_instance.currently_playing_guest_wished_song}"
+          if sonos_instance.currently_playing_guest_wished_song
+            {
+              success: true,
+              position: spotify_instance.queued_songs.count
+            }
+          else
+            queued_successfully = spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+            sonos_instance.currently_playing_guest_wished_song = queued_successfully
+
+            if queued_successfully
+              {
+                success: true,
+                position: 0
+              }
+            else
+              {
+                success: false,
+                error: 'Failed to queue the song on Sonos. Please try again in a moment.'
+              }
+            end
+          end
         end
-        sonos_instance.currently_playing_guest_wished_song = true
-        Thread.new do # async
-          spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
-        end
-        return {
-          success: true,
-          position: 0
-        }.to_json
       end
+
+      result.to_json
     end
 
     # -----------------------
     # Sonos Specific Code
     # -----------------------
     get '/sonos/authorized.html' do
+      if params[:state].to_s.empty? || params[:state] != session[:sonos_state_key]
+        session[:sonos_state_key] = nil
+        redirect '/?error=invalid_sonos_state'
+        return
+      end
+      session[:sonos_state_key] = nil
+
       # So, this user is serious, they onboarded Sonos, so we now create an entry for them
       # First, create a new user
       user_id = SonosPartyMode::Db.users.insert
@@ -478,104 +667,14 @@ module SonosPartyMode
 
     # Sonos callback information (ping, hook)
     post '/callback' do
-      info = JSON.parse(request.body.read)
-      sonos_group_id = request.env.fetch('HTTP_X_SONOS_TARGET_VALUE')
-      puts "Received Sonos Web API callback for #{sonos_group_id}"
+      raw_body = request.body.read.to_s
+      verify_sonos_callback_signature!(raw_body)
+      sonos_group_id = request.env.fetch('HTTP_X_SONOS_TARGET_VALUE', nil)
 
-      # Find the matching sonos session to use
-      filtered_instances = sonos_instances.values.find_all { |a| a.group_to_use == sonos_group_id }
-      if filtered_instances.count.zero? # not a Sonos system we actively manage (any more)
-        puts "Couldn't find the Sonos instance for #{sonos_group_id}"
-        return
+      Thread.new do
+        process_sonos_callback(raw_body: raw_body, sonos_group_id: sonos_group_id)
       end
 
-      # iterate over multiple, in case there was half an auth, and we have an old session
-      spotify_instance = nil
-      sonos_instance = nil
-      filtered_instances.each do |ins|
-        spotify_instance = spotify_instances[ins.user_id]
-        if spotify_instance
-          sonos_instance = ins
-          break
-        end
-      end
-      if spotify_instance.nil? # not yet fully connected
-        puts "Couldn't find the spotify instance for #{filtered_instances}"
-        return
-      end
-
-      puts "\n\nSonos Notification\n\n"
-      puts JSON.pretty_generate(info)
-      puts "\n\n"
-
-      if info['playbackState'] && !%w[PLAYBACK_STATE_PLAYING
-                                      PLAYBACK_STATE_BUFFERING].include?(info.fetch('playbackState'))
-        puts 'user paused the group...'
-        sonos_instance.play_music! if sonos_instance.party_session_active
-      end
-
-      if info['itemId']
-        if sonos_instance.current_item_id != info.fetch('itemId') &&
-           sonos_instance.current_item_id == info.fetch('previousItemId')
-          puts 'mismatching item IDs, this means the song is over'
-
-          # Set it immediately, as the Sonos web requests do take some time to complete
-          sonos_instance.current_item_id = info.fetch('itemId') # always set it
-
-          # This means, the user has skipped to the next song, or the song has finished playing
-          # we use this to do proper queueing of upcoming songs
-
-          # We queue the next song (after this one's finished)
-          puts 'Queue the new song now'
-          sonos_instance.currently_playing_guest_wished_song = spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
-          sonos_instance.current_item_id = info.fetch('itemId')
-        end
-
-        sonos_instance.current_item_id = info.fetch('itemId') # always set it
-        # => {"playbackState"=>"PLAYBACK_STATE_PLAYING",
-        #   "isDucking"=>false,
-        #   "itemId"=>"3d6iqwIjxdilDioPqbhU4cJPTGs=",
-        #   "positionMillis"=>14,
-        #   "previousItemId"=>"FwZvKUVmIj3zb3OsjfPQjF8BWsg=",
-        #   "previousPositionMillis"=>60368,
-        #   "playModes"=>{"repeat"=>false, "repeatOne"=>false, "shuffle"=>false, "crossfade"=>false},
-        #   "availablePlaybackActions"=>
-        #    {"canSkip"=>true,
-        #     "canSkipBack"=>true,
-        #     "canSeek"=>true,
-        #     "canPause"=>true,
-        #     "canStop"=>true,
-        #     "canRepeat"=>true,
-        #     "canRepeatOne"=>true,
-        #     "canCrossfade"=>true,
-        #     "canShuffle"=>true}}
-      end
-
-      if info['container']
-        sonos_instance.did_receive_new_playback_metadata(info)
-
-        # Pre-load the song's information from Spotify to get the album cover and other details
-        # which is used by the party host's dashboard, reducing the load time from 5s to 0.5s
-        # Even not assigning the variable, this is a cache
-        if info['currentItem'] && info['currentItem']["track"] && info['currentItem']['track']["id"]
-          current_spotify_object_id = info['currentItem']['track']['id']['objectId']
-          spotify_instance.find_song(current_spotify_object_id)
-        end
-
-        if info['nextItem'] && info['nextItem']['track'] && info['nextItem']['track']["id"]
-          next_spotify_object_id = info['nextItem']['track']['id']['objectId']
-          spotify_instance.find_song(next_spotify_object_id)
-        end
-        # the `info` `track` entries are `nil` when there is no playlist playing atm
-        # this is handled already with `#nothing-playing`
-      end
-
-      # Respond to Sonos
-      #
-      # When you receive an event, send a 200 OK response to let the Sonos cloud know that your client received it. Any response outside of the 200 range will be considered an error, including no response. Sonos also considers a 301 redirect an error as it does not follow redirects for events.
-      # If Sonos isn’t able to send an event to your client, it retries every second for three tries. After the third try, if the Sonos cloud receives another error response or no response, it drops the event. Sonos does not backlog or replay events.
-      # Make sure that your client responds to events quickly (within 1 second). To make sure that apps don’t accidentally run over the timeout limit, we recommend that you defer any lengthy event processing until after you’ve sent the 200 OK response.
-      # As a best practice, you should unsubscribe to namespaces before terminating your event service.
       status 200
       body ''
     end
@@ -621,31 +720,33 @@ module SonosPartyMode
 
       song_name = params.fetch(:song_name)
       user_id = params[:user_id].to_i
-      spotify_playlist = spotify_instances[user_id].party_playlist
+      spotify_instance = spotify_instances[user_id]
+      if spotify_instance.nil?
+        status 404
+        return { error: 'This party is no longer available' }.to_json
+      end
+
+      spotify_playlist = spotify_instance.party_playlist
 
       # To make sure the user actually has the full link, and the IDs match
       return { error: 'Unauthorized' }.to_json if spotify_playlist.id != params[:playlist_id]
-      return {}.to_json if song_name.to_s.strip.empty?
+      return [].to_json if song_name.to_s.strip.empty?
 
       puts "Searching for Spotify song using name #{song_name}"
-      songs = spotify_instances[user_id].search_for_song(song_name)
+      songs = spotify_instance.search_for_song(song_name)
       return songs.collect do |song|
-        audio_features = song.audio_features
         {
           id: song.id,
           name: song.name,
           artists: song.artists.collect(&:name),
-          thumbnail: song.album.images[1]['url'],
-          danceability: audio_features.danceability,
-          energy: audio_features.energy,
-          tempo: audio_features.tempo,
-          loudness: audio_features.loudness,
-          liveness: audio_features.liveness,
-          acousticness: audio_features.acousticness,
-          speechiness: audio_features.speechiness,
-          valence: audio_features.valence,
+          thumbnail: (song.album.images[1] || song.album.images.last || {})['url']
         }
       end.to_json
+    rescue => ex
+      puts "Spotify search failed for user #{user_id}"
+      puts ex
+      puts ex.backtrace.join("\n")
+      [].to_json
     end
 
     # Caching state
@@ -659,20 +760,10 @@ module SonosPartyMode
 
     # Others
     def queued_songs_json(spotify_instance, sonos_instance)
-      queued_songs = spotify_instance.queued_songs.dup # `.dup` to not modify the actual queue
-
-      # Manually prefix the most recently queued song, as it's already in the Sonos queue
-      queued_songs.unshift(spotify_instance.past_songs.last) if spotify_instance.past_songs.count.positive? && sonos_instance.currently_playing_guest_wished_song
-
-      return queued_songs.collect do |track|
-        {
-          album_cover: track.album.images[-1]['url'],
-          name: track.name,
-          artists: track.artists.map(&:name).join(', '),
-          id: track.id.to_s,
-          duration: track.duration_ms.to_i / 1000,
-          uri: track.uri
-        }
+      spotify_instance.queue_mutex.synchronize do
+        return queue_snapshot_tracks(spotify_instance, sonos_instance).collect do |track|
+          track_to_json(track)
+        end
       end
     end
 
