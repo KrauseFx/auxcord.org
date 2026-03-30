@@ -1,24 +1,48 @@
 <script type="text/javascript">
   function refreshAutocomplete() {
     console.log("Sending auto-complete request")
-    let ids = window.location.pathname.replace("/p/", "")
+    let ids = window.location.pathname.replace("/p/", "");
     var song = document.getElementById('song-input').value;
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/spotify/search/' + ids + '?song_name=' + song, true);
+    xhr.open('GET', '/spotify/search/' + ids + '?song_name=' + encodeURIComponent(song), true);
     xhr.onload = function() {
+      var songList = document.getElementById('song-list');
       if (xhr.status === 200) {
         var response = JSON.parse(xhr.responseText);
-        var html = '';
-        for (var i = 0; i < response.length; i++) {
-          html += '<li class="autocomplete-entry" onclick="queueSong(\'' + response[i].id + '\')">'
-          html += '<img src="' + response[i].thumbnail + '" class="autocomplete-image" />'
-          html += '<span class="autocomplete-label">' + response[i].name + '</span>'
-          html += '<span class="autocomplete-artist">' + response[i].artists.join(", ") + '</span>'
-          html += '</li>';
+        songList.replaceChildren();
+
+        if (!Array.isArray(response)) {
+          return;
         }
-        document.getElementById('song-list').innerHTML = html;
+
+        for (var i = 0; i < response.length; i++) {
+          var entry = document.createElement('li');
+          entry.className = 'autocomplete-entry';
+          entry.onclick = (function(songId) {
+            return function() {
+              queueSong(songId);
+            };
+          })(response[i].id);
+
+          var image = document.createElement('img');
+          image.src = response[i].thumbnail || '';
+          image.className = 'autocomplete-image';
+
+          var label = document.createElement('span');
+          label.className = 'autocomplete-label';
+          label.textContent = response[i].name;
+
+          var artist = document.createElement('span');
+          artist.className = 'autocomplete-artist';
+          artist.textContent = response[i].artists.join(", ");
+
+          entry.appendChild(image);
+          entry.appendChild(label);
+          entry.appendChild(artist);
+          songList.appendChild(entry);
+        }
       } else {
-        document.getElementById('song-list').innerHTML = ""
+        songList.replaceChildren();
       }
     };
     xhr.send();
@@ -43,13 +67,13 @@
           }
           alert(text);
           document.getElementById('song-input').value = '';
-          document.getElementById('song-list').innerHTML = ""
+          document.getElementById('song-list').replaceChildren();
           // reload page
           window.location.reload();
         } else if (response.error) {
           alert(response.error);
           document.getElementById('song-input').value = '';
-          document.getElementById('song-list').innerHTML = ""
+          document.getElementById('song-list').replaceChildren();
         } else {
           alert("Something went wrong queuing this song")
         }

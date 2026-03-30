@@ -8,8 +8,8 @@
     <ul id="queue-list">
       <% @queued_songs.each do |song| %>
         <li class="queue-entry">
-          <img class="queue-image" src="<%= song[:album_cover] %>" />
-          <span><%= song[:name] %> - <%= song[:artists] %></span>
+          <img class="queue-image" src="<%= Rack::Utils.escape_html(song[:album_cover].to_s) %>" />
+          <span><%= Rack::Utils.escape_html(song[:name].to_s) %> - <%= Rack::Utils.escape_html(song[:artists].to_s) %></span>
         </li>
       <% end %>
     </ul>
@@ -34,7 +34,7 @@
   <a href="https://auxcord.org" target="_blank">AuxCord.org</a>,
   a free service that lets your guests add their own songs.
 </p>
-<p>This project was built by <a href="https://krausefx.com/about" target="_blank">Felix Krause</p>
+<p>This project was built by <a href="https://krausefx.com/about" target="_blank">Felix Krause</a></p>
 
 <%= erb :"js/_queue_song.js", layout: false %>
 <%= erb :"css/_queue_song.css", layout: false %>

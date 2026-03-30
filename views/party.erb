@@ -14,11 +14,11 @@
   </div>
 
   <div id="media-controls">
-    <button id="pause-play-button">
+    <button id="pause-play-button" type="button">
       <span id="svg-play"><%= erb :"svgs/_button-play.svg", layout: false %></span>
       <span id="svg-pause"><%= erb :"svgs/_button-pause.svg", layout: false %></span>
     </button>
-    <button id="next-song-button" onclick="skipSong()">
+    <button id="next-song-button" type="button" onclick="skipSong()">
       <%= erb :"svgs/_button-skip.svg", layout: false %>
     </button>
   </div>
@@ -39,22 +39,22 @@
   </div>
   <p id="party-join-link"><a target="_blank"></a></p>
   <div id="volume-container">
-    <button onclick="volumeDown()">
+    <button type="button" onclick="volumeDown()">
       <%= erb :"svgs/_button-arrow-left.svg", layout: false %>
     </button>
     <input type="range" min="0" max="100" value="" class="slider" id="volume-slider">
     <span id="volume-label"></span>
-    <button onclick="volumeUp()">
+    <button type="button" onclick="volumeUp()">
       <%= erb :"svgs/_button-arrow-right.svg", layout: false %>
     </button>
   </div>
   <hr />
     
-    <button id="groups-button">
-      <% # erb :"svgs/_button-groups.svg", layout: false %>
+    <button id="groups-button" type="button">
+      <%= erb :"svgs/_button-groups.svg", layout: false %>
     </button>
 
-  <%# <div id="groups-div"></div> %>
+  <div id="groups-div"></div>
 </div>
 
 <div id="instruction">
@@ -76,9 +76,12 @@
   </ul>
 </div>
 
-<%= erb :"js/_party.js", layout: false %>
+<%= erb :"js/_party.js", layout: false, locals: { initial_party_data: initial_party_data, csrf_token: csrf_token } %>
 <%= erb :"css/_party.css", layout: false %>
 
 <div id="footer">
-  <a href="/logout" onclick="return confirm('Are you sure you want to delete your Spotify & Sonos login tokens, and logout from auxcord.org? You will need to do the full onboarding flow again if you want to use auxcord.org again!')">Logout & Remove all Login tokens</a>
+  <form action="/logout" method="post" onsubmit="return confirm('Are you sure you want to delete your Spotify & Sonos login tokens, and logout from auxcord.org? You will need to do the full onboarding flow again if you want to use auxcord.org again!')">
+    <input type="hidden" name="csrf_token" value="<%= Rack::Utils.escape_html(csrf_token) %>">
+    <button type="submit">Logout & Remove all Login tokens</button>
+  </form>
 </div>

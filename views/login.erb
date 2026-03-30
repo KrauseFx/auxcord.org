@@ -10,6 +10,8 @@
     <h1>
       <% if params["error"] == "no_sonos_system" %>
         Looks like your Sonos account isn't connected to a household.
+      <% elsif params["error"] == "invalid_sonos_state" %>
+        The Sonos login expired or did not match this browser session. Please try again.
       <% end %>
     </h1>
   </div>

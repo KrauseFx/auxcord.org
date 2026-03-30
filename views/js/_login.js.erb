@@ -1,6 +1,7 @@
 <script type="text/javascript">
   document.addEventListener("DOMContentLoaded", function(event) { 
-    carousel = document.getElementById('meme-carousel');
+    var carousel = document.getElementById('meme-carousel');
+    if (!carousel) { return; }
 
     // Randomize order of all images in the carousel
     for (var i = carousel.children.length; i >= 0; i--) {

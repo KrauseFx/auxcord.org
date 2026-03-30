@@ -6,13 +6,15 @@ require_relative './db'
 
 module SonosPartyMode
   class Sonos
+    SUBSCRIPTION_REFRESH_INTERVAL = 60 * 60 * 24
+
     # Basic attributes
     attr_accessor :user_id
-    attr_accessor :group_to_use, :currently_playing_guest_wished_song, :favorites_cached
+    attr_accessor :favorites_cached
     attr_reader :party_session_active
 
     # Queueing system
-    attr_accessor :current_item_id # it's being set by the `/callback` triggers
+    attr_reader :current_item_id # it's being set by the `/callback` triggers
 
     # Session specific settings
     attr_accessor :target_volume
@@ -30,29 +32,37 @@ module SonosPartyMode
 
       @target_volume = database_row[:volume] # default volume is defined as part of `db.rb`
       @group_to_use = database_row[:group]
-      groups_cached = groups
+      self.groups_cached = groups
       return if groups_cached.nil? # no household
 
-      unless groups_cached.collect { |a| a['id'] }.include?(@group_to_use)
-        # The group ID doesn't exist any more, fallback to the default one (most speakers)
-        @group_to_use = groups_cached.sort_by { |a| a['playerIds'].count }.reverse.first.fetch('id')
-        # Also store the resulting group in the database
-        Db.sonos_tokens.where(user_id: user_id).update(group: @group_to_use) # important to use full query
-      end
+      validate_group_to_use!(force_refresh: false)
 
       @party_session_active = database_row[:party_active] || false
-      @currently_playing_guest_wished_song = false
+      @currently_playing_guest_wished_song = database_row[:currently_playing_guest_wished_song] || false
+      @current_item_id = database_row[:current_item_id]
+      @subscriptions_refreshed_at = Time.at(0)
 
-      subscribe_to_playback
-      subscribe_to_playback_metadata
+      resubscribe!
     end
 
     def subscribe_to_playback
-      client_control_request("/groups/#{group_to_use}/playback/subscription", method: :post)
+      client_control_request("/groups/#{active_group_to_use}/playback/subscription", method: :post)
     end
 
     def subscribe_to_playback_metadata
-      client_control_request("/groups/#{group_to_use}/playbackMetadata/subscription", method: :post)
+      client_control_request("/groups/#{active_group_to_use}/playbackMetadata/subscription", method: :post)
+    end
+
+    def resubscribe!
+      subscribe_to_playback
+      subscribe_to_playback_metadata
+      @subscriptions_refreshed_at = Time.now
+    end
+
+    def ensure_subscriptions!
+      return if @subscriptions_refreshed_at && (Time.now - @subscriptions_refreshed_at) < SUBSCRIPTION_REFRESH_INTERVAL
+
+      resubscribe!
     end
 
     def did_receive_new_playback_metadata(info)
@@ -67,7 +77,7 @@ module SonosPartyMode
       end
 
       # fallback, in case we didn't get a Sonos message yet. I confirmed it's the exact same data
-      return client_control_request("groups/#{group_to_use}/playbackMetadata")
+      return client_control_request("groups/#{active_group_to_use}/playbackMetadata")
     end
 
     def ensure_playlist_in_favorites(spotify_playlist_id, force_refresh: true)
@@ -95,11 +105,13 @@ module SonosPartyMode
     # Called every ~15s
     def refresh_caches
       self.groups_cached = groups
+      validate_group_to_use!(force_refresh: false)
       self.favorites_cached = client_control_request("/households/#{primary_household}/favorites")
+      ensure_subscriptions!
     end
 
     def playback_status
-      status = client_control_request("/groups/#{group_to_use}/playback")
+      status = client_control_request("/groups/#{active_group_to_use}/playback")
       return status.fetch('playbackState')
     end
 
@@ -115,24 +127,24 @@ module SonosPartyMode
 
     def play_music!
       puts 'Resuming playback for Sonos system'
-      client_control_request("groups/#{group_to_use}/playback/play", method: :post)
+      client_control_request("groups/#{active_group_to_use}/playback/play", method: :post)
     end
 
     def pause_playback!
       return unless playback_is_playing?
 
       puts 'Pausing playback for Sonos system'
-      client_control_request("groups/#{group_to_use}/playback/pause", method: :post)
+      client_control_request("groups/#{active_group_to_use}/playback/pause", method: :post)
     end
 
     def skip_song!
       puts 'Skipping song'
-      client_control_request("/groups/#{group_to_use}/playback/skipToNextTrack", method: :post)
+      client_control_request("/groups/#{active_group_to_use}/playback/skipToNextTrack", method: :post)
     end
 
     def get_volume
       # {"volume"=>40, "muted"=>false, "fixed"=>false}
-      client_control_request("groups/#{group_to_use}/groupVolume")
+      client_control_request("groups/#{active_group_to_use}/groupVolume")
     end
 
     def ensure_volume!(goal_volume, check_first: true)
@@ -144,7 +156,7 @@ module SonosPartyMode
 
       # The request below will set the volume
       client_control_request(
-        "groups/#{group_to_use}/groupVolume",
+        "groups/#{active_group_to_use}/groupVolume",
         method: :post,
         body: { volume: goal_volume }
       )
@@ -156,7 +168,7 @@ module SonosPartyMode
       # to check if any of the speakers in a given group is muted, so it's best to just
       # send this API request from time to time in the background
       client_control_request(
-        "groups/#{group_to_use}/groupVolume/mute",
+        "groups/#{active_group_to_use}/groupVolume/mute",
         method: :post,
         body: { muted: false }
       )
@@ -184,7 +196,7 @@ module SonosPartyMode
     rescue => ex
       puts ex
       puts ex.backtrace.join("\n")
-      @_primary_household ||= households.first
+      @_primary_household ||= households.first['id']
     end
 
     def households
@@ -194,6 +206,30 @@ module SonosPartyMode
     def groups
       return nil if primary_household.nil?
       client_control_request("/households/#{primary_household}/groups").fetch('groups', nil)
+    end
+
+    def group_to_use
+      active_group_to_use(force_refresh: false)
+    end
+
+    def group_to_use=(value)
+      assign_group_to_use!(value, persist: true, resubscribe: true)
+    end
+
+    def currently_playing_guest_wished_song=(value)
+      @currently_playing_guest_wished_song = !!value
+      Db.sonos_tokens.where(user_id: user_id).update(
+        currently_playing_guest_wished_song: @currently_playing_guest_wished_song
+      )
+    end
+
+    def currently_playing_guest_wished_song
+      @currently_playing_guest_wished_song
+    end
+
+    def current_item_id=(value)
+      @current_item_id = value
+      Db.sonos_tokens.where(user_id: user_id).update(current_item_id: value)
     end
 
     def access_token
@@ -297,6 +333,33 @@ module SonosPartyMode
         expires_in: response.fetch('expires_in')
       )
       Db.sonos_tokens.where(user_id: user_id).update(household: primary_household)
+    end
+
+    def active_group_to_use(force_refresh: true)
+      validate_group_to_use!(force_refresh: force_refresh)
+      @group_to_use
+    end
+
+    def validate_group_to_use!(force_refresh: true)
+      available_groups = if force_refresh || groups_cached.nil?
+                           self.groups_cached = groups
+                         else
+                           groups_cached
+                         end
+      return nil if available_groups.nil? || available_groups.empty?
+
+      return @group_to_use if available_groups.any? { |group| group['id'] == @group_to_use }
+
+      fallback_group = available_groups.max_by { |group| group.fetch('playerIds', []).count }
+      assign_group_to_use!(fallback_group.fetch('id'), persist: true, resubscribe: true)
+      @group_to_use
+    end
+
+    def assign_group_to_use!(value, persist:, resubscribe:)
+      @group_to_use = value
+      Db.sonos_tokens.where(user_id: user_id).update(group: value) if persist
+      resubscribe! if resubscribe && !value.nil?
+      @group_to_use
     end
   end
 end

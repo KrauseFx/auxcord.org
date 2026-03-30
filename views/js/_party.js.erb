@@ -1,8 +1,10 @@
 <script type="text/javascript">
+  const csrfToken = "<%= Rack::Utils.escape_html(csrf_token) %>";
+
   function refreshUI(data) {
     if (data["nothing_playing"]) {
       document.getElementById("nothing-playing").style.display = "block";
-      document.getElementById("custom-group").innerHTML = '"' + data["group_to_use"] + '"';
+      document.getElementById("custom-group").textContent = '"' + data["group_to_use"] + '"';
       document.getElementById("everything-else").style.display = "none";
       return;
     } else {
@@ -12,11 +14,12 @@
 
     // document.getElementById("volume-label").innerHTML = data["volume"];
     document.getElementById("volume-slider").value = data["volume"];
-    document.getElementById("currently-playing-title").innerHTML = data["current_song_details"]["name"];
-    document.getElementById("currently-playing-cover").src = data["current_image_url"];
-    document.getElementById("playing-next-cover").src = data["next_image_url"];
-    document.getElementById(data["party_on"] ? 'svg-play' : 'svg-pause').style.display = "none";
-    document.getElementById("party-join-link").children[0].innerHTML = data["party_join_link"];
+    document.getElementById("currently-playing-title").textContent = data["current_song_details"]["name"];
+    document.getElementById("currently-playing-cover").src = data["current_image_url"] || "";
+    document.getElementById("playing-next-cover").src = data["next_image_url"] || "";
+    document.getElementById("svg-play").style.display = data["party_on"] ? "none" : "block";
+    document.getElementById("svg-pause").style.display = data["party_on"] ? "block" : "none";
+    document.getElementById("party-join-link").children[0].textContent = data["party_join_link"];
     document.getElementById("party-join-link").children[0].href = data["party_join_link"];
     // document.getElementById("spotify-link").href = data["spotify_url"];
     // document.getElementById("spotify-link-2").href = data["spotify_url"];
@@ -24,16 +27,16 @@
     partyOn = data["party_on"];
     
     // Render the current queue
-    const queueList = document.getElementById("queue-list")
-    queueList.innerHTML = "";
+    const queueList = document.getElementById("queue-list");
+    queueList.replaceChildren();
     for (const song of data["queued_songs"]) {
       const queueEntry = document.createElement("li");
       queueEntry.classList.add("queue-entry");
       const queueImage = document.createElement("img");
       queueImage.classList.add("queue-image");
-      queueImage.src = song["album_cover"]
+      queueImage.src = song["album_cover"] || "";
       const songName = document.createElement("span");
-      songName.innerHTML = song["name"] + " - " + song["artists"]
+      songName.textContent = song["name"] + " - " + song["artists"];
       queueEntry.appendChild(queueImage);
       queueEntry.appendChild(songName);
       queueList.appendChild(queueEntry);
@@ -41,29 +44,33 @@
     document.getElementById("no-songs-text").style.display = data["queued_songs"].length == 0 ? "block" : "none";
 
     // Render the available groups
-    // const groupDiv = document.getElementById("groups-div")
-    // groupDiv.innerHTML = "";
+    const groupDiv = document.getElementById("groups-div");
+    groupDiv.replaceChildren();
 
-    // for (const group of data["groups"]) {
-    //   const label = document.createElement("label");
-    //   label.classList.add("container");
-    //   label.innerHTML = group["name"] + " (" + group["number_of_speakers"] + " " + (group["number_of_speakers"] == 1 ? "speaker" : "speakers" + ")");
-    //   const input = document.createElement("input");
-    //   input.value = group["id"];
-    //   input.type = "radio";
-    //   input.name = "group";
-    //   input.onclick = function() {
-    //     updateGroup(group["id"]);
-    //   }
-    //   if (group["id"] == data["selected_group"]) {
-    //     input.checked = true;
-    //   }
-    //   const checkmark = document.createElement("span");
-    //   checkmark.classList.add("checkmark");
-    //   label.appendChild(input);
-    //   label.appendChild(checkmark);
-    //   groupDiv.appendChild(label);
-    // }
+    for (const group of data["groups"]) {
+      const label = document.createElement("label");
+      label.classList.add("container");
+
+      const input = document.createElement("input");
+      input.value = group["id"];
+      input.type = "radio";
+      input.name = "group";
+      input.onclick = function() {
+        updateGroup(group["id"]);
+      };
+      if (group["id"] == data["selected_group"]) {
+        input.checked = true;
+      }
+
+      const text = document.createTextNode(group["name"] + " (" + group["number_of_speakers"] + " " + (group["number_of_speakers"] == 1 ? "speaker" : "speakers") + ")");
+      const checkmark = document.createElement("span");
+      checkmark.classList.add("checkmark");
+
+      label.appendChild(text);
+      label.appendChild(input);
+      label.appendChild(checkmark);
+      groupDiv.appendChild(label);
+    }
   }
 
   //////////////////
@@ -73,8 +80,8 @@
   let partyOn = false;
   pausePlayButton.onclick = function() {
     partyOn = !partyOn;
-    document.getElementById(partyOn ? 'svg-pause' : 'svg-play').style.display = "block";
-    document.getElementById(partyOn ? 'svg-play' : 'svg-pause').style.display = "none";
+    document.getElementById("svg-play").style.display = partyOn ? "none" : "block";
+    document.getElementById("svg-pause").style.display = partyOn ? "block" : "none";
     sendUpdateRequest("party_toggle=" + partyOn);
   }
 
@@ -117,7 +124,7 @@
   let groupsVisible = false;
   groupsButton.onclick = function() {
     groupsVisible = !groupsVisible;
-    const groupsDiv = document.getElementById("groups-div")
+    const groupsDiv = document.getElementById("groups-div");
     groupsDiv.style.display = groupsVisible ? "block" : "none";
     if (groupsVisible) {
       groupsDiv.style.marginTop = (groupsDiv.scrollHeight * -1 - 50) + "px";
@@ -134,19 +141,20 @@
   //////////////////
   // API Requests
   //////////////////
-  refreshUI(<%= party_data.to_json %>)
+  refreshUI(<%= json_for_script(initial_party_data) %>);
   setInterval(triggerUIRefresh, 2500);
 
   function sendUpdateRequest(params) {
     var xhttp = new XMLHttpRequest();
     xhttp.open("POST", "/party/host/update", true);
     xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    xhttp.send(params);
+    xhttp.setRequestHeader("X-CSRF-Token", csrfToken);
+    xhttp.send(params + "&csrf_token=" + encodeURIComponent(csrfToken));
   }
 
   function triggerUIRefresh() {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/party.json", false);
+    xhr.open("GET", "/party.json", true);
     xhr.onload = function (e) {
       if (xhr.readyState === 4 && xhr.status === 200) {
         var data = JSON.parse(xhr.responseText);
@@ -155,7 +163,6 @@
         console.error(xhr.statusText);
       }
     };
-    xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     xhr.send();
   }
 </script>
