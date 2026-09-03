@@ -82,10 +82,19 @@ module SonosPartyMode
     def ensure_playlist_in_favorites(spotify_playlist_id, force_refresh: true)
       favs = favorites_cached unless force_refresh
       favs ||= client_control_request("/households/#{primary_household}/favorites")
-      return favs.fetch('items').find do |fav|
-        fav['service']['name'] == 'Spotify' &&
-        fav['resource']['type'] == 'PLAYLIST' &&
-        fav['resource']['id']['objectId'].include?(spotify_playlist_id)
+      items = favs.is_a?(Hash) ? Array(favs['items']) : []
+      return items.find do |fav|
+        next false unless fav.is_a?(Hash)
+
+        service = fav['service']
+        resource = fav['resource']
+        resource_id = resource['id'] if resource.is_a?(Hash)
+        next false unless service.is_a?(Hash) && resource_id.is_a?(Hash)
+        next false unless service['name'] == 'Spotify'
+        next false unless resource['type'] == 'PLAYLIST'
+
+        object_id = resource_id['objectId']
+        object_id.is_a?(String) && object_id.include?(spotify_playlist_id)
       end
     rescue => ex
       puts "fav playlist error"
