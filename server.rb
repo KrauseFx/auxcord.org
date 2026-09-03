@@ -28,7 +28,7 @@ module SonosPartyMode
       # Boot up code: load existing sessions into the `session` instances
       SonosPartyMode::Db.users.each do |user|
         begin
-          sonos_obj = SonosPartyMode::Sonos.new(user_id: user[:id])
+          sonos_obj = SonosPartyMode::Sonos.new(user_id: user[:id], eager_load: false)
           spotify_obj = SonosPartyMode::Spotify.new(user_id: user[:id])
 
           # Important to check if there is an actual entry, since otherwise there will be empty objects in those hashes
@@ -62,8 +62,14 @@ module SonosPartyMode
       end
       Thread.new do
         loop do
-          sonos_instances.each do |_user_id, sonos|
-            sonos.refresh_caches
+          sonos_instances.each do |user_id, sonos|
+            next unless sonos.party_session_active
+
+            begin
+              sonos.refresh_caches
+            rescue => ex
+              puts "Failed to refresh Sonos caches for user #{user_id}: #{ex.class}: #{ex}"
+            end
           end
           sleep(15)
         end
@@ -103,8 +109,12 @@ module SonosPartyMode
     end
 
     def ensure_current_sonos_settings!
-      sonos_instances.each do |_user_id, sonos|
-        sonos.ensure_current_sonos_settings!
+      sonos_instances.each do |user_id, sonos|
+        begin
+          sonos.ensure_current_sonos_settings!
+        rescue => ex
+          puts "Failed to ensure Sonos settings for user #{user_id}: #{ex.class}: #{ex}"
+        end
       end
     end
 

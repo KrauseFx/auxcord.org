@@ -22,16 +22,25 @@ module SonosPartyMode
 
     # Optionally pass in `authorization_code` if this is the first time
     # the account is being used, this will store the token in the database
-    def initialize(user_id:, authorization_code: nil)
+    def initialize(user_id:, authorization_code: nil, eager_load: true)
       @user_id = user_id
       new_auth!(authorization_code: authorization_code) if authorization_code
 
-      return if database_row.nil? # this is the case if a user didn't finish onboarding
+      row = database_row
+      return if row.nil? # this is the case if a user didn't finish onboarding
 
-      @target_volume = database_row[:volume] # default volume is defined as part of `db.rb`
-      @group_to_use = database_row[:group]
-      groups_cached = groups
-      return if groups_cached.nil? # no household
+      @target_volume = row[:volume] # default volume is defined as part of `db.rb`
+      @group_to_use = row[:group]
+      @party_session_active = row[:party_active] || false
+      @currently_playing_guest_wished_song = false
+
+      # Server boot must not depend on every stored Sonos account being
+      # reachable. Old/revoked tokens are loaded lazily when their owner uses
+      # the app instead of blocking the web process from starting.
+      return unless eager_load
+
+      self.groups_cached = groups
+      return if groups_cached.nil? || groups_cached.empty? # no household
 
       unless groups_cached.collect { |a| a['id'] }.include?(@group_to_use)
         # The group ID doesn't exist any more, fallback to the default one (most speakers)
@@ -39,9 +48,6 @@ module SonosPartyMode
         # Also store the resulting group in the database
         Db.sonos_tokens.where(user_id: user_id).update(group: @group_to_use) # important to use full query
       end
-
-      @party_session_active = database_row[:party_active] || false
-      @currently_playing_guest_wished_song = false
 
       subscribe_to_playback
       subscribe_to_playback_metadata
@@ -171,7 +177,10 @@ module SonosPartyMode
 
       # I don't have an account with multiple households, but for now let's just access the household
       # with the highest number of speakers associated
-      household_speakers = households.collect do |household|
+      available_households = households
+      return nil if available_households.empty?
+
+      household_speakers = available_households.collect do |household|
         household_groups = client_control_request("/households/#{household['id']}/groups").fetch('groups', nil)
 
         [
@@ -180,15 +189,15 @@ module SonosPartyMode
         ]
       end.to_h
       
-      @_primary_household = household_speakers.max_by { |k, v| v }.first
+      @_primary_household = household_speakers.max_by { |_key, value| value }.first
     rescue => ex
       puts ex
       puts ex.backtrace.join("\n")
-      @_primary_household ||= households.first
+      @_primary_household ||= available_households&.first&.fetch('id', nil)
     end
 
     def households
-      client_control_request('households').fetch('households')
+      Array(client_control_request('households')['households'])
     end
 
     def groups
