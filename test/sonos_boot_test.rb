@@ -36,4 +36,29 @@ class SonosBootTest < Minitest::Test
     assert_empty sonos.households
     assert_nil sonos.primary_household
   end
+
+  def test_playlist_lookup_skips_malformed_favorites
+    matching_favorite = {
+      'service' => { 'name' => 'Spotify' },
+      'resource' => {
+        'type' => 'PLAYLIST',
+        'id' => { 'objectId' => 'spotify:playlist:target-playlist' }
+      }
+    }
+    favorites = {
+      'items' => [
+        { 'service' => nil, 'resource' => nil },
+        {
+          'service' => { 'name' => 'Spotify' },
+          'resource' => { 'type' => 'PLAYLIST', 'id' => nil }
+        },
+        matching_favorite
+      ]
+    }
+    sonos = SonosPartyMode::Sonos.allocate
+    sonos.define_singleton_method(:primary_household) { 'household-id' }
+    sonos.define_singleton_method(:client_control_request) { |_path| favorites }
+
+    assert_same matching_favorite, sonos.ensure_playlist_in_favorites('target-playlist')
+  end
 end
