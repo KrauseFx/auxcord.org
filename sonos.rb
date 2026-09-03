@@ -31,7 +31,10 @@ module SonosPartyMode
 
       @target_volume = row[:volume] # default volume is defined as part of `db.rb`
       @group_to_use = row[:group]
-      @party_session_active = row[:party_active] || false
+      # A process restart intentionally starts with no active party. Restoring
+      # old database flags would make the background workers hammer stale
+      # Sonos accounts before their owners have returned to the app.
+      @party_session_active = eager_load && (row[:party_active] || false)
       @currently_playing_guest_wished_song = false
 
       # Server boot must not depend on every stored Sonos account being

@@ -12,7 +12,7 @@ class SonosBootTest < Minitest::Test
         {
           volume: 20,
           group: 'group-id',
-          party_active: false
+          party_active: true
         }
       end
 
