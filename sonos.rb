@@ -304,7 +304,6 @@ module SonosPartyMode
       )
 
       response = JSON.parse(response.body)
-      puts "sonos api response: #{response}"
       raise response['error'] if response['error'].to_s.length.positive?
 
       access_token = response.fetch('access_token')
