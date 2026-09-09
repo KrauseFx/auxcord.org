@@ -159,10 +159,14 @@ module SonosPartyMode
       else
         return erb :party, locals: pd
       end
+    rescue SonosPartyMode::Spotify::ReauthorizationRequired
+      reauthorize_spotify!
     end
 
     get '/party.json' do
       unless all_sessions?
+        return spotify_reauthorization_required_response! if sonos_instances[session[:user_id]] && spotify_instances[session[:user_id]].nil?
+
         redirect '/'
         return
       end
@@ -172,6 +176,8 @@ module SonosPartyMode
       return {}.to_json if pd[:redirect] || pd[:erb]
 
       return pd.to_json
+    rescue SonosPartyMode::Spotify::ReauthorizationRequired
+      spotify_reauthorization_required_response!
     end
 
     def party_data
@@ -255,6 +261,26 @@ module SonosPartyMode
         party_join_link: generate_invite_url(request, spotify_playlist_id),
         spotify_url: spotify_url
       }
+    end
+
+    def reauthorize_spotify!
+      spotify_instances.delete(session[:user_id])
+      redirect '/auth/spotify'
+    end
+
+    def spotify_reauthorization_required_response!
+      spotify_instances.delete(session[:user_id])
+      content_type :json
+      status 401
+      return { reauthorization_required: true }.to_json
+    end
+
+    def spotify_guest_unavailable!(json: false)
+      status 503
+      return 'This party is temporarily unavailable' unless json
+
+      content_type :json
+      return { error: 'spotify_reauthorization_required' }.to_json
     end
 
     def generate_invite_url(request, spotify_playlist_id)
@@ -357,6 +383,8 @@ module SonosPartyMode
 
       # No auth here, we just verify the 2 IDs
       spotify_instance = spotify_instances[params[:user_id].to_i]
+      return spotify_guest_unavailable! unless spotify_instance
+
       spotify_playlist = spotify_instance.party_playlist
       if spotify_playlist.id != params[:playlist_id]
         redirect '/'
@@ -368,6 +396,8 @@ module SonosPartyMode
       @queued_songs = queued_songs_json(spotify_instance, sonos_instance)
 
       erb :queue_song
+    rescue SonosPartyMode::Spotify::ReauthorizationRequired
+      spotify_guest_unavailable!
     end
 
     # User submitted a song request
@@ -376,6 +406,8 @@ module SonosPartyMode
 
       user_id = params[:user_id].to_i
       spotify_instance = spotify_instances[user_id]
+      return spotify_guest_unavailable!(json: true) unless spotify_instance
+
       spotify_playlist = spotify_instance.party_playlist
       sonos_instance = sonos_instances[user_id]
 
@@ -413,13 +445,20 @@ module SonosPartyMode
         end
         sonos_instance.currently_playing_guest_wished_song = true
         Thread.new do # async
-          spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+          begin
+            spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
+          rescue SonosPartyMode::Spotify::ReauthorizationRequired
+            spotify_instances.delete(user_id)
+            puts "Spotify reauthorization required for user #{user_id}"
+          end
         end
         return {
           success: true,
           position: 0
         }.to_json
       end
+    rescue SonosPartyMode::Spotify::ReauthorizationRequired
+      spotify_guest_unavailable!(json: true)
     end
 
     # -----------------------
@@ -588,6 +627,13 @@ module SonosPartyMode
       # As a best practice, you should unsubscribe to namespaces before terminating your event service.
       status 200
       body ''
+    rescue SonosPartyMode::Spotify::ReauthorizationRequired
+      if spotify_instance
+        spotify_instances.delete(spotify_instance.user_id)
+        puts "Spotify reauthorization required for user #{spotify_instance.user_id}"
+      end
+      status 200
+      body ''
     end
 
     # -----------------------
@@ -598,6 +644,11 @@ module SonosPartyMode
     SPOTIFY_REDIRECT_URI = "#{HOST_URL}#{SPOTIFY_REDIRECT_PATH}".freeze
 
     get SPOTIFY_REDIRECT_PATH do
+      unless sonos_instances[session[:user_id]]
+        redirect '/'
+        return
+      end
+
       if params[:state] == Hash(session)['state_key']
         session[:state_key] = nil
 
@@ -614,6 +665,11 @@ module SonosPartyMode
     end
 
     get '/auth/spotify' do
+      unless sonos_instances[session[:user_id]]
+        redirect '/'
+        return
+      end
+
       session[:state_key] = SecureRandom.hex
 
       redirect('https://accounts.spotify.com/authorize?' +
@@ -631,14 +687,17 @@ module SonosPartyMode
 
       song_name = params.fetch(:song_name)
       user_id = params[:user_id].to_i
-      spotify_playlist = spotify_instances[user_id].party_playlist
+      spotify_instance = spotify_instances[user_id]
+      return spotify_guest_unavailable!(json: true) unless spotify_instance
+
+      spotify_playlist = spotify_instance.party_playlist
 
       # To make sure the user actually has the full link, and the IDs match
       return { error: 'Unauthorized' }.to_json if spotify_playlist.id != params[:playlist_id]
       return {}.to_json if song_name.to_s.strip.empty?
 
       puts "Searching for Spotify song using name #{song_name}"
-      songs = spotify_instances[user_id].search_for_song(song_name)
+      songs = spotify_instance.search_for_song(song_name)
       return songs.collect do |song|
         audio_features = song.audio_features
         {
@@ -656,6 +715,8 @@ module SonosPartyMode
           valence: audio_features.valence,
         }
       end.to_json
+    rescue SonosPartyMode::Spotify::ReauthorizationRequired
+      spotify_guest_unavailable!(json: true)
     end
 
     # Caching state

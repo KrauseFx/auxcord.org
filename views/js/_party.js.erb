@@ -148,7 +148,9 @@
     var xhr = new XMLHttpRequest();
     xhr.open("GET", "/party.json", false);
     xhr.onload = function (e) {
-      if (xhr.readyState === 4 && xhr.status === 200) {
+      if (xhr.readyState === 4 && xhr.status === 401) {
+        window.location.href = "/auth/spotify";
+      } else if (xhr.readyState === 4 && xhr.status === 200) {
         var data = JSON.parse(xhr.responseText);
         refreshUI(data);
       } else {
