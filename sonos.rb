@@ -6,6 +6,8 @@ require_relative './db'
 
 module SonosPartyMode
   class Sonos
+    class ReauthorizationRequired < StandardError; end
+
     # Basic attributes
     attr_accessor :user_id
     attr_accessor :group_to_use, :currently_playing_guest_wished_song, :favorites_cached
@@ -42,6 +44,12 @@ module SonosPartyMode
       # the app instead of blocking the web process from starting.
       return unless eager_load
 
+      load_groups!
+    end
+
+    # Validates the stored group and subscribes to its events. Instances that were
+    # loaded lazily at boot call this the first time their owner opens the dashboard.
+    def load_groups!
       self.groups_cached = groups
       return if groups_cached.nil? || groups_cached.empty? # no household
 
@@ -96,6 +104,8 @@ module SonosPartyMode
         object_id = resource_id['objectId']
         object_id.is_a?(String) && object_id.include?(spotify_playlist_id)
       end
+    rescue ReauthorizationRequired
+      raise
     rescue => ex
       puts "fav playlist error"
       puts ex.message
@@ -202,6 +212,8 @@ module SonosPartyMode
       end.to_h
       
       @_primary_household = household_speakers.max_by { |_key, value| value }.first
+    rescue ReauthorizationRequired
+      raise
     rescue => ex
       puts ex
       puts ex.backtrace.join("\n")
@@ -254,12 +266,14 @@ module SonosPartyMode
                                     refresh_token: refresh_token
                                   })
       )
+      raise ReauthorizationRequired, 'Sonos authorization is no longer valid' if [400, 401].include?(response.status)
+
       parsed_body = JSON.parse(response.body)
       access_token = parsed_body.fetch('access_token')
       Db.sonos_tokens.where(user_id: user_id).update(access_token: access_token) # important to use full query
     end
 
-    def client_control_request(path, method: :get, body: nil)
+    def client_control_request(path, method: :get, body: nil, refresh_expired_token: true)
       response = client_control.request(
         method: method,
         path: File.join(client_control.data[:path], path),
@@ -267,17 +281,22 @@ module SonosPartyMode
         body: Hash(body).to_json
       )
       parsed_body = JSON.parse(response.body)
-      # Check if Sonos API token has expired
+      # Check if Sonos API token has expired. Sonos used to respond with
       # "=> {"fault"=>{"faultstring"=>"Access Token expired", "detail"=>{"errorcode"=>"keymanagement.service.access_token_expired"}}}"
-      if parsed_body['fault'].to_s.length.positive?
-        if ['keymanagement.service.invalid_access_token',
-            'keymanagement.service.access_token_expired'].include?(parsed_body['fault']['detail']['errorcode'])
-          refresh_token
-          return client_control_request(path, method: method, body: body)
-        else
-          raise parsed_body['fault']['faultstring']
-        end
+      # and now responds with a 401 and
+      # "=> {"error"=>"access_denied", "error_description"=>"Invalid Token"}"
+      fault = parsed_body['fault']
+      token_expired = response.status == 401 ||
+                      (fault.to_s.length.positive? &&
+                       ['keymanagement.service.invalid_access_token',
+                        'keymanagement.service.access_token_expired'].include?(fault['detail']['errorcode']))
+      if token_expired
+        raise ReauthorizationRequired, 'Sonos authorization is no longer valid' unless refresh_expired_token
+
+        refresh_token
+        return client_control_request(path, method: method, body: body, refresh_expired_token: false)
       end
+      raise fault['faultstring'] if fault.to_s.length.positive?
 
       return parsed_body
     end
