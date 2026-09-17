@@ -1,4 +1,4 @@
-<h1>Aux cord</a></h1>
+<h1>Aux cord</h1>
 
 <% if @already_submitted %>
   <h2 style="color: rgb(175, 0, 0)">Could not find the playlist, please make sure to follow the steps below</h2>
@@ -10,7 +10,7 @@
 
 <ol>
   <li>Open the <b>Sonos app</b> on your iPhone or Android</li>
-  <li>Switch to <b>Search</b> and enter <b>"<%= @spotify_playlist_name %>"</b> for <b>Playlists</b></li>
+  <li>Switch to <b>Search</b> and enter <b>"<%= Rack::Utils.escape_html(@spotify_playlist_name) %>"</b> for <b>Playlists</b></li>
   <li>Select the playlist</li>
   <li>Tap on the top right 3 dots ...</li>
   <li>Tap on <b>Add Playlist to My Sonos</b></li>
