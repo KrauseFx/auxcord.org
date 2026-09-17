@@ -80,5 +80,5 @@
 <%= erb :"css/_party.css", layout: false %>
 
 <div id="footer">
-  <a href="/logout" onclick="return confirm('Are you sure you want to delete your Spotify & Sonos login tokens, and logout from auxcord.org? You will need to do the full onboarding flow again if you want to use auxcord.org again!')">Logout & Remove all Login tokens</a>
+  <form method="post" action="/logout" onsubmit="return confirm('Are you sure you want to delete your Spotify & Sonos login tokens, and logout from auxcord.org? You will need to do the full onboarding flow again if you want to use auxcord.org again!')"><button type="submit" style="background: none; border: none; padding: 0; font: inherit; color: LinkText; text-decoration: underline; cursor: pointer;">Logout & Remove all Login tokens</button></form>
 </div>

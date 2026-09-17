@@ -107,10 +107,14 @@ class SonosReauthorizationTest < Minitest::Test
       options.fetch(:body).include?('grant_type=authorization_code') ? token_exchange : token_refresh
     end
 
+    app = Class.new(test_app) do
+      before { session[:sonos_state_key] = 'login-state' }
+    end
+
     response = with_database do
       with_instance_method(SonosPartyMode::Sonos, :client_login, login) do
         with_instance_method(SonosPartyMode::Sonos, :client_control, SonosApi.new) do
-          Rack::MockRequest.new(test_app.new).get('/sonos/authorized.html?code=authorization-code')
+          Rack::MockRequest.new(app.new).get('/sonos/authorized.html?code=authorization-code&state=login-state')
         end
       end
     end
