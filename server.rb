@@ -161,6 +161,9 @@ module SonosPartyMode
       end
     rescue SonosPartyMode::Spotify::ReauthorizationRequired
       reauthorize_spotify!
+    rescue SonosPartyMode::Sonos::ReauthorizationRequired
+      session.delete(:user_id) # signing in to Sonos again stores fresh tokens for this account
+      redirect '/'
     end
 
     get '/party.json' do
@@ -178,6 +181,11 @@ module SonosPartyMode
       return pd.to_json
     rescue SonosPartyMode::Spotify::ReauthorizationRequired
       spotify_reauthorization_required_response!
+    rescue SonosPartyMode::Sonos::ReauthorizationRequired
+      session.delete(:user_id) # the dashboard's 401 handler then ends up on the Sonos login
+      content_type :json
+      status 401
+      return { reauthorization_required: true }.to_json
     end
 
     def party_data
@@ -186,6 +194,9 @@ module SonosPartyMode
 
       spotify_playlist = spotify_instance.party_playlist
       spotify_playlist_id = spotify_playlist.id
+
+      # Instances loaded at boot haven't validated their stored group or subscribed to it yet
+      sonos_instance.load_groups! if sonos_instance.groups_cached.nil?
 
       playback_metadata = sonos_instance.playback_metadata
       if Hash(Hash(playback_metadata.fetch('currentItem', nil)).fetch('track', nil)).fetch('id', nil).nil?
@@ -490,6 +501,9 @@ module SonosPartyMode
         redirect "/?error=no_sonos_system"
         return;
       end
+      # When this login is merged into an existing account below, that account's stored
+      # tokens may be expired or revoked, so carry over the ones we just received
+      fresh_tokens = new_sonos.database_row.slice(:access_token, :refresh_token, :expires_in)
       existing_entries = SonosPartyMode::Db.sonos_tokens.where(household: primary_household)
       entries_without_matching_spotify = existing_entries.to_a.find_all do |sonos_entry|
         SonosPartyMode::Db.spotify_tokens.where(user_id: sonos_entry[:user_id]).count.zero?
@@ -501,6 +515,7 @@ module SonosPartyMode
           SonosPartyMode::Db.users.where(id: user_id).delete
         end
         sonos_db_entry = SonosPartyMode::Db.sonos_tokens.where(household: primary_household).first
+        SonosPartyMode::Db.sonos_tokens.where(user_id: sonos_db_entry[:user_id]).update(fresh_tokens)
         new_sonos = SonosPartyMode::Sonos.new(user_id: sonos_db_entry[:user_id])
         user_id = sonos_db_entry[:user_id]
 
@@ -514,6 +529,7 @@ module SonosPartyMode
           SonosPartyMode::Db.sonos_tokens.where(id: sonos_entry[:id]).delete
           SonosPartyMode::Db.users.where(id: user_id).delete
         end
+        SonosPartyMode::Db.sonos_tokens.where(user_id: oldest_entry[:user_id]).update(fresh_tokens)
         new_sonos = SonosPartyMode::Sonos.new(user_id: oldest_entry[:user_id])
         user_id = oldest_entry[:user_id]
       end
