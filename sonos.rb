@@ -60,8 +60,22 @@ module SonosPartyMode
         Db.sonos_tokens.where(user_id: user_id).update(group: @group_to_use) # important to use full query
       end
 
+      subscribe!
+    end
+
+    # Sonos subscriptions expire after three days and don't follow the host to another group,
+    # see https://docs.sonos.com/docs/subscribe
+    SUBSCRIPTION_RENEWAL_INTERVAL = 24 * 60 * 60
+
+    def subscribe!
+      @subscribed_at = nil # if subscribing fails, `renew_subscriptions_if_needed!` retries
       subscribe_to_playback
       subscribe_to_playback_metadata
+      @subscribed_at = Time.now
+    end
+
+    def renew_subscriptions_if_needed!
+      subscribe! if @subscribed_at.nil? || Time.now - @subscribed_at > SUBSCRIPTION_RENEWAL_INTERVAL
     end
 
     def subscribe_to_playback
@@ -124,6 +138,7 @@ module SonosPartyMode
     def refresh_caches
       self.groups_cached = groups
       self.favorites_cached = client_control_request("/households/#{primary_household}/favorites")
+      renew_subscriptions_if_needed!
     end
 
     def playback_status
