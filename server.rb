@@ -363,6 +363,7 @@ module SonosPartyMode
         # Update the currently used group in the database, as well as the current session
         Db.sonos_tokens.where(user_id: session[:user_id]).update(group: params[:group_to_use]) # now, store in db for next run, important to use full query
         sonos.group_to_use = params[:group_to_use]
+        sonos.subscribe! # so the callbacks that advance the guest queue come from the new group
 
         # Now, trigger playing on the new group
         sonos.ensure_music_playing! if sonos.party_session_active # but only if the party is currently active
@@ -420,7 +421,6 @@ module SonosPartyMode
       return spotify_guest_unavailable!(json: true) unless spotify_instance
 
       spotify_playlist = spotify_instance.party_playlist
-      sonos_instance = sonos_instances[user_id]
 
       # To make sure the user actually has the full link, and the IDs match
       if spotify_playlist.id != params[:playlist_id]
@@ -428,46 +428,53 @@ module SonosPartyMode
         return
       end
 
+      sonos_instance = sonos_instances[user_id]
+      unless sonos_instance
+        status 503
+        return { success: false, error: 'This party is temporarily unavailable' }.to_json
+      end
+
       # Queue that song
       song_to_queue = spotify_instance.find_song(params.fetch(:song_id))
-      
-      # Verify we haven't already played this song
-      if queued_songs_json(spotify_instance, sonos_instance).any? { |song| song[:id] == song_to_queue.id.to_s }
+      return { success: false, error: "Couldn't find this song on Spotify, please pick another one" }.to_json if song_to_queue.nil?
+
+      case spotify_instance.enqueue_guest_song(song_to_queue, sonos_instance)
+      when :duplicate
         puts "Already played this song"
         return {
           success: false,
           error: 'Song was already played, or is already in the queue'
         }.to_json
+      when :waiting
+        # Another guest song is up next, this one gets queued on Sonos once that one starts playing
+        return {
+          success: true,
+          position: spotify_instance.queued_position(song_to_queue)
+        }.to_json
       end
-      spotify_instance.add_song_to_queue(song_to_queue)
 
-      # Check if we can queue right away, or if we have to wait for the next song to start
-      # This basically means, that no user wished song is currently playing, but the default playlist only
-      puts "sonos_instance.currently_playing_guest_wished_song: #{sonos_instance.currently_playing_guest_wished_song}"
-      if sonos_instance.currently_playing_guest_wished_song
-        return {
-          success: true,
-          position: spotify_instance.queued_songs.count
-        }.to_json
-      else
-        if spotify_instance.queued_songs.count != 1
-          puts 'Something went wrong'
-          puts spotify_instance.queued_songs
+      # No guest song is up next on Sonos, so queue it right away, and only report success once Sonos has it
+      begin
+        spotify_instance.run_reserved_sonos_insert!(sonos_instance)
+      rescue StandardError => ex
+        # Don't keep a song we couldn't queue, so the guest can simply try again
+        spotify_instance.remove_queued_song(song_to_queue)
+        if ex.is_a?(SonosPartyMode::Spotify::ReauthorizationRequired)
+          spotify_instances.delete(user_id)
+          puts "Spotify reauthorization required for user #{user_id}"
+          raise
         end
-        sonos_instance.currently_playing_guest_wished_song = true
-        Thread.new do # async
-          begin
-            spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
-          rescue SonosPartyMode::Spotify::ReauthorizationRequired
-            spotify_instances.delete(user_id)
-            puts "Spotify reauthorization required for user #{user_id}"
-          end
-        end
+
+        puts "Failed to queue a guest song on Sonos for user #{user_id}: #{ex.class}: #{ex}"
         return {
-          success: true,
-          position: 0
+          success: false,
+          error: "Couldn't add your song to the Sonos queue, please try again"
         }.to_json
       end
+      return {
+        success: true,
+        position: spotify_instance.queued_position(song_to_queue)
+      }.to_json
     rescue SonosPartyMode::Spotify::ReauthorizationRequired
       spotify_guest_unavailable!(json: true)
     end
@@ -543,8 +550,16 @@ module SonosPartyMode
 
     # Sonos callback information (ping, hook)
     post '/callback' do
-      info = JSON.parse(request.body.read)
-      sonos_group_id = request.env.fetch('HTTP_X_SONOS_TARGET_VALUE')
+      info = begin
+        JSON.parse(request.body.read)
+      rescue JSON::ParserError
+        nil
+      end
+      sonos_group_id = request.env['HTTP_X_SONOS_TARGET_VALUE']
+      unless info.is_a?(Hash) && sonos_group_id
+        status 400
+        return
+      end
       puts "Received Sonos Web API callback for #{sonos_group_id}"
 
       # Find the matching sonos session to use
@@ -573,30 +588,24 @@ module SonosPartyMode
       puts JSON.pretty_generate(info)
       puts "\n\n"
 
+      # Sonos drops events that aren't acknowledged within a second, so only the in-memory state is
+      # updated right away, and anything that talks to Sonos or Spotify runs after responding
+      background_jobs = []
+
       if info['playbackState'] && !%w[PLAYBACK_STATE_PLAYING
                                       PLAYBACK_STATE_BUFFERING].include?(info.fetch('playbackState'))
         puts 'user paused the group...'
-        sonos_instance.play_music! if sonos_instance.party_session_active
+        background_jobs << -> { sonos_instance.play_music! } if sonos_instance.party_session_active
       end
 
       if info['itemId']
-        if sonos_instance.current_item_id != info.fetch('itemId') &&
-           sonos_instance.current_item_id == info.fetch('previousItemId')
+        # A new item ID means the user has skipped to the next song, or the song has finished playing,
+        # which is when we queue the next guest song (to play after the one that just started)
+        if spotify_instance.song_changed!(sonos_instance, item_id: info['itemId'], previous_item_id: info['previousItemId'])
           puts 'mismatching item IDs, this means the song is over'
-
-          # Set it immediately, as the Sonos web requests do take some time to complete
-          sonos_instance.current_item_id = info.fetch('itemId') # always set it
-
-          # This means, the user has skipped to the next song, or the song has finished playing
-          # we use this to do proper queueing of upcoming songs
-
-          # We queue the next song (after this one's finished)
           puts 'Queue the new song now'
-          sonos_instance.currently_playing_guest_wished_song = spotify_instance.add_next_song_to_sonos_queue!(sonos_instance)
-          sonos_instance.current_item_id = info.fetch('itemId')
+          background_jobs << -> { spotify_instance.run_reserved_sonos_insert!(sonos_instance) }
         end
-
-        sonos_instance.current_item_id = info.fetch('itemId') # always set it
         # => {"playbackState"=>"PLAYBACK_STATE_PLAYING",
         #   "isDucking"=>false,
         #   "itemId"=>"3d6iqwIjxdilDioPqbhU4cJPTGs=",
@@ -622,18 +631,15 @@ module SonosPartyMode
         # Pre-load the song's information from Spotify to get the album cover and other details
         # which is used by the party host's dashboard, reducing the load time from 5s to 0.5s
         # Even not assigning the variable, this is a cache
-        if info['currentItem'] && info['currentItem']["track"] && info['currentItem']['track']["id"]
-          current_spotify_object_id = info['currentItem']['track']['id']['objectId']
-          spotify_instance.find_song(current_spotify_object_id)
-        end
-
-        if info['nextItem'] && info['nextItem']['track'] && info['nextItem']['track']["id"]
-          next_spotify_object_id = info['nextItem']['track']['id']['objectId']
-          spotify_instance.find_song(next_spotify_object_id)
-        end
         # the `info` `track` entries are `nil` when there is no playlist playing atm
         # this is handled already with `#nothing-playing`
+        %w[currentItem nextItem].each do |item|
+          spotify_object_id = info.dig(item, 'track', 'id', 'objectId')
+          background_jobs << -> { spotify_instance.find_song(spotify_object_id) } if spotify_object_id
+        end
       end
+
+      run_in_background(spotify_instance, background_jobs) if background_jobs.any?
 
       # Respond to Sonos
       #
@@ -643,13 +649,19 @@ module SonosPartyMode
       # As a best practice, you should unsubscribe to namespaces before terminating your event service.
       status 200
       body ''
-    rescue SonosPartyMode::Spotify::ReauthorizationRequired
-      if spotify_instance
-        spotify_instances.delete(spotify_instance.user_id)
-        puts "Spotify reauthorization required for user #{spotify_instance.user_id}"
+    end
+
+    def run_in_background(spotify_instance, jobs)
+      Thread.new do
+        jobs.each do |job|
+          job.call
+        rescue SonosPartyMode::Spotify::ReauthorizationRequired
+          spotify_instances.delete(spotify_instance.user_id)
+          puts "Spotify reauthorization required for user #{spotify_instance.user_id}"
+        rescue => ex
+          puts "Failed to handle Sonos callback for user #{spotify_instance.user_id}: #{ex.class}: #{ex}"
+        end
       end
-      status 200
-      body ''
     end
 
     # -----------------------

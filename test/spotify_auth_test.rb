@@ -425,18 +425,26 @@ class SpotifyAuthTest < Minitest::Test
     load_server_without_running
     spotify = Object.new
     spotify.define_singleton_method(:user_id) { 7 }
-    spotify.define_singleton_method(:add_next_song_to_sonos_queue!) do |_sonos|
+    spotify.define_singleton_method(:song_changed!) { |_sonos, **| true }
+    spotify.define_singleton_method(:run_reserved_sonos_insert!) do |_sonos|
       raise SonosPartyMode::Spotify::ReauthorizationRequired
     end
     sonos = Struct.new(:group_to_use, :user_id, :current_item_id).new('group-id', 7, 'previous-item')
     GlobalState[:spotify_instances][7] = spotify
     GlobalState[:sonos_instances][7] = sonos
+    background_threads = []
+    app = Class.new(route_test_app) do
+      define_method(:run_in_background) do |spotify_instance, jobs|
+        background_threads << super(spotify_instance, jobs)
+      end
+    end
 
-    response = Rack::MockRequest.new(route_test_app.new).post(
+    response = Rack::MockRequest.new(app.new).post(
       '/callback',
       'HTTP_X_SONOS_TARGET_VALUE' => 'group-id',
       input: JSON.generate(itemId: 'new-item', previousItemId: 'previous-item')
     )
+    background_threads.each(&:join)
 
     assert_equal 200, response.status
     refute GlobalState[:spotify_instances].key?(7)
