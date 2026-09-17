@@ -101,23 +101,33 @@ module SonosPartyMode
       return client_control_request("groups/#{group_to_use}/playbackMetadata")
     end
 
-    def ensure_playlist_in_favorites(spotify_playlist_id, force_refresh: true)
+    # Favorites used to include the Spotify playlist ID under `resource`, but the Control API only
+    # documents id, name, description and service, so fall back to the playlist's unique name
+    def ensure_playlist_in_favorites(spotify_playlist, force_refresh: true)
       favs = favorites_cached unless force_refresh
       favs ||= client_control_request("/households/#{primary_household}/favorites")
       items = favs.is_a?(Hash) ? Array(favs['items']) : []
-      return items.find do |fav|
+      favorite = items.find do |fav|
         next false unless fav.is_a?(Hash)
 
-        service = fav['service']
-        resource = fav['resource']
-        resource_id = resource['id'] if resource.is_a?(Hash)
-        next false unless service.is_a?(Hash) && resource_id.is_a?(Hash)
-        next false unless service['name'] == 'Spotify'
-        next false unless resource['type'] == 'PLAYLIST'
-
-        object_id = resource_id['objectId']
-        object_id.is_a?(String) && object_id.include?(spotify_playlist_id)
+        resource_id = fav['resource']['id'] if fav['resource'].is_a?(Hash)
+        object_id = resource_id['objectId'] if resource_id.is_a?(Hash)
+        if object_id.is_a?(String)
+          object_id.include?(spotify_playlist.id)
+        else
+          fav['name'] == spotify_playlist.name
+        end
       end
+
+      if favorite
+        self.favorites_cached = favs # avoid refetching on every dashboard poll while no party is running
+      elsif force_refresh
+        # Only field names and service names, to see what Sonos returns without logging users' favorites
+        fields = items.map { |fav| fav.is_a?(Hash) ? fav.keys.sort.join('+') : fav.class.to_s }.tally
+        services = items.map { |fav| fav['service']['name'] if fav.is_a?(Hash) && fav['service'].is_a?(Hash) }.tally
+        puts "Playlist not found in #{items.count} Sonos favorites, fields: #{fields}, services: #{services}"
+      end
+      return favorite
     rescue ReauthorizationRequired
       raise
     rescue => ex

@@ -225,6 +225,23 @@ module SonosPartyMode
       # Instances loaded at boot haven't validated their stored group or subscribed to it yet
       sonos_instance.load_groups! if sonos_instance.groups_cached.nil?
 
+      # Check onboarding before looking at playback, otherwise the dashboard shows up whenever
+      # nothing is playing, even though guest songs can't be queued without the favorite
+      sonos_instance_playlist = sonos_instance.ensure_playlist_in_favorites(spotify_playlist,
+                                                                            force_refresh: params['submitted'].to_s == 'true')
+      if sonos_instance_playlist.nil?
+        # User doesn't have the Spotify playlist in their favorites, show them the onboarding instructions
+        @spotify_playlist_name = spotify_playlist.name
+        spotify_instance.prepare_welcome_playlist_song!(spotify_playlist)
+        return {
+          erb: :add_playlist_to_favs
+        }
+      elsif params['submitted'].to_s == 'true'
+        return {
+          redirect: '/party' # to remove the `submitted` GET parameter
+        }
+      end
+
       playback_metadata = sonos_instance.playback_metadata
       if Hash(Hash(playback_metadata.fetch('currentItem', nil)).fetch('track', nil)).fetch('id', nil).nil?
         sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
@@ -255,21 +272,6 @@ module SonosPartyMode
       else
         next_spotify_track = nil
         next_image_url = nil
-      end
-
-      sonos_instance_playlist = sonos_instance.ensure_playlist_in_favorites(spotify_playlist_id,
-                                                                            force_refresh: params['submitted'].to_s == 'true')
-      if sonos_instance_playlist.nil?
-        # User doesn't have the Spotify playlist in their favorites, show them the onboarding instructions
-        @spotify_playlist_name = spotify_playlist.name
-        spotify_instance.prepare_welcome_playlist_song!(spotify_playlist)
-        return {
-          erb: :add_playlist_to_favs
-        }
-      elsif params['submitted'].to_s == 'true'
-        return {
-          redirect: '/party' # to remove the `submitted` GET parameter
-        }
       end
 
       # Prepare all other variables needed to render the host dashboard

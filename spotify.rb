@@ -259,7 +259,7 @@ module SonosPartyMode
 
         begin
           # Get the Sonos ID of the favorite playlist
-          fav = sonos.ensure_playlist_in_favorites(party_playlist.id)
+          fav = sonos.ensure_playlist_in_favorites(party_playlist)
           raise SonosInsertFailed, "Couldn't find the auxcord playlist in the Sonos favorites" if fav.nil?
 
           # Queue the one song from that playlist into the Sonos Queue

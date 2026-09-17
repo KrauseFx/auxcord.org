@@ -175,6 +175,7 @@ class RouteHardeningTest < Minitest::Test
     sonos.define_singleton_method(:groups_cached) { [{ 'id' => 'other-group', 'name' => 'Kitchen', 'playerIds' => [] }] }
     sonos.define_singleton_method(:group_to_use) { 'removed-group' }
     sonos.define_singleton_method(:playback_metadata) { {} }
+    sonos.define_singleton_method(:ensure_playlist_in_favorites) { |_playlist, force_refresh:| { 'id' => 'favorite-id' } }
     GlobalState[:spotify_instances][7] = guest_spotify
     GlobalState[:sonos_instances][7] = sonos
 
