@@ -4,31 +4,49 @@
     let ids = window.location.pathname.replace("/p/", "")
     var song = document.getElementById('song-input').value;
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/spotify/search/' + ids + '?song_name=' + song, true);
+    xhr.open('GET', '/spotify/search/' + ids + '?song_name=' + encodeURIComponent(song), true);
     xhr.onload = function() {
+      var songList = document.getElementById('song-list');
+      songList.innerHTML = "";
       if (xhr.status === 200) {
         var response = JSON.parse(xhr.responseText);
-        var html = '';
         for (var i = 0; i < response.length; i++) {
-          html += '<li class="autocomplete-entry" onclick="queueSong(\'' + response[i].id + '\')">'
-          html += '<img src="' + response[i].thumbnail + '" class="autocomplete-image" />'
-          html += '<span class="autocomplete-label">' + response[i].name + '</span>'
-          html += '<span class="autocomplete-artist">' + response[i].artists.join(", ") + '</span>'
-          html += '</li>';
+          songList.appendChild(autocompleteEntry(response[i]));
         }
-        document.getElementById('song-list').innerHTML = html;
-      } else {
-        document.getElementById('song-list').innerHTML = ""
       }
     };
     xhr.send();
+  }
+
+  // Built with DOM APIs, so track and artist names from Spotify are never parsed as HTML
+  function autocompleteEntry(track) {
+    var entry = document.createElement('li');
+    entry.className = 'autocomplete-entry';
+    entry.addEventListener('click', function() { queueSong(track.id); });
+
+    var image = document.createElement('img');
+    image.className = 'autocomplete-image';
+    image.src = track.thumbnail;
+
+    var label = document.createElement('span');
+    label.className = 'autocomplete-label';
+    label.textContent = track.name;
+
+    var artist = document.createElement('span');
+    artist.className = 'autocomplete-artist';
+    artist.textContent = track.artists.join(", ");
+
+    entry.appendChild(image);
+    entry.appendChild(label);
+    entry.appendChild(artist);
+    return entry;
   }
   const processChange = debounce(() => refreshAutocomplete());
 
   function queueSong(songId) {
     document.getElementById("loading-div").style.display = "block";
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', window.location.pathname + "/" + songId, true);
+    xhr.open('POST', window.location.pathname + "/" + encodeURIComponent(songId), true);
     xhr.onload = function() {
       document.getElementById("loading-div").style.display = "none"
 

@@ -157,7 +157,8 @@ module SonosPartyMode
         @already_submitted = params['submitted'].to_s == 'true'
         return erb :add_playlist_to_favs
       else
-        return erb :party, locals: pd
+        @party_data = pd # rendered into the dashboard JS, so party_data doesn't run twice per page load
+        return erb :party
       end
     rescue SonosPartyMode::Spotify::ReauthorizationRequired
       reauthorize_spotify!
