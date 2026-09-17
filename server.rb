@@ -6,6 +6,9 @@ require_relative './sonos'
 require_relative './spotify'
 require_relative './db'
 
+# Write logs immediately, otherwise Railway only receives them in delayed batches
+$stdout.sync = true
+
 GlobalState = {}
 GlobalState[:spotify_instances] = {}
 GlobalState[:sonos_instances] = {}
@@ -23,6 +26,17 @@ module SonosPartyMode
     # Server Config
     set :bind, '0.0.0.0'
     set :show_exceptions, false
+
+    BOOT_TIMEOUT_SECONDS = 120
+
+    # A boot that hangs on a network call never starts listening, so the container
+    # would serve 502s indefinitely. The block runs if boot doesn't finish in time
+    def self.start_boot_watchdog(timeout_seconds, &on_timeout)
+      Thread.new do
+        sleep(timeout_seconds)
+        on_timeout.call
+      end
+    end
 
     def load_tokens_from_db
       # Boot up code: load existing sessions into the `session` instances
@@ -47,11 +61,16 @@ module SonosPartyMode
       super
 
       puts 'Booting up auxcord.org and refreshing auth tokens...'
+      boot_watchdog = self.class.start_boot_watchdog(BOOT_TIMEOUT_SECONDS) do
+        warn "Boot didn't finish within #{BOOT_TIMEOUT_SECONDS}s, exiting so Railway restarts the container"
+        exit!(1)
+      end
 
       # General
       RSpotify.authenticate(ENV.fetch('SPOTIFY_CLIENT_ID'), ENV.fetch('SPOTIFY_CLIENT_SECRET'))
 
       load_tokens_from_db
+      boot_watchdog.kill
 
       # Ongoing background thread to monitor all Sonos systems
       Thread.new do
