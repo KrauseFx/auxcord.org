@@ -7,6 +7,8 @@ require_relative '../sonos'
 
 class SonosBootTest < Minitest::Test
   Response = Struct.new(:status, :body)
+  Playlist = Struct.new(:id, :name)
+  PARTY_PLAYLIST = Playlist.new('target-playlist', "1896 auxcord.org - Don't Delete")
 
   class MemoryDataset
     attr_reader :rows
@@ -153,10 +155,74 @@ class SonosBootTest < Minitest::Test
     sonos.define_singleton_method(:primary_household) { 'household-id' }
     sonos.define_singleton_method(:client_control_request) { |_path| favorites }
 
-    assert_same matching_favorite, sonos.ensure_playlist_in_favorites('target-playlist')
+    assert_same matching_favorite, sonos.ensure_playlist_in_favorites(PARTY_PLAYLIST)
+  end
+
+  # The documented favorite object has no `resource`, so there's no Spotify ID to match on
+  def test_playlist_lookup_matches_documented_favorites_by_playlist_name
+    matching_favorite = { 'id' => '7', 'name' => "1896 auxcord.org - Don't Delete",
+                          'description' => 'Spotify Playlist', 'service' => { 'name' => 'Spotify', 'id' => '9' } }
+    favorites = {
+      'version' => '1',
+      'items' => [
+        { 'id' => '5', 'name' => 'Heart', 'service' => { 'name' => 'Sonos Radio', 'id' => '303' } },
+        { 'id' => '6', 'name' => "1881 auxcord.org - Don't Delete", 'service' => { 'name' => 'Spotify', 'id' => '9' } },
+        matching_favorite
+      ]
+    }
+
+    assert_same matching_favorite, sonos_with_favorites(favorites).ensure_playlist_in_favorites(PARTY_PLAYLIST)
+  end
+
+  def test_playlist_lookup_prefers_spotify_id_over_name_when_sonos_provides_it
+    renamed_favorite = {
+      'name' => 'Renamed in Spotify',
+      'resource' => { 'type' => 'PLAYLIST', 'id' => { 'objectId' => 'spotify:playlist:target-playlist' } }
+    }
+    other_playlist_with_same_name = {
+      'name' => "1896 auxcord.org - Don't Delete",
+      'resource' => { 'type' => 'PLAYLIST', 'id' => { 'objectId' => 'spotify:playlist:other-playlist' } }
+    }
+    favorites = { 'items' => [other_playlist_with_same_name, renamed_favorite] }
+
+    assert_same renamed_favorite, sonos_with_favorites(favorites).ensure_playlist_in_favorites(PARTY_PLAYLIST)
+  end
+
+  def test_missing_playlist_logs_favorite_fields_without_favorite_names
+    favorites = { 'items' => [{ 'id' => '5', 'name' => 'Private station name', 'service' => { 'name' => 'Sonos Radio' } }] }
+    sonos = sonos_with_favorites(favorites)
+
+    output, = capture_io { assert_nil sonos.ensure_playlist_in_favorites(PARTY_PLAYLIST, force_refresh: true) }
+
+    assert_includes output, 'Playlist not found in 1 Sonos favorites'
+    assert_includes output, 'id+name+service'
+    assert_includes output, 'Sonos Radio'
+    refute_includes output, 'Private station name'
+  end
+
+  def test_found_favorites_are_cached_for_dashboard_polling
+    favorites = { 'items' => [{ 'id' => '7', 'name' => "1896 auxcord.org - Don't Delete" }] }
+    requests = 0
+    sonos = SonosPartyMode::Sonos.allocate
+    sonos.define_singleton_method(:primary_household) { 'household-id' }
+    sonos.define_singleton_method(:client_control_request) do |_path|
+      requests += 1
+      favorites
+    end
+
+    2.times { refute_nil sonos.ensure_playlist_in_favorites(PARTY_PLAYLIST, force_refresh: false) }
+
+    assert_equal 1, requests
   end
 
   private
+
+  def sonos_with_favorites(favorites)
+    sonos = SonosPartyMode::Sonos.allocate
+    sonos.define_singleton_method(:primary_household) { 'household-id' }
+    sonos.define_singleton_method(:client_control_request) { |_path| favorites }
+    sonos
+  end
 
   def with_sonos_api(connection, refresh_response)
     login = Object.new
