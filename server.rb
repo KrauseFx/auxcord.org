@@ -21,7 +21,12 @@ module SonosPartyMode
     # Session management
     use Rack::Session::Cookie, key: 'rack.session',
                                path: '/',
-                               secret: ENV.fetch('SESSION_SECRET')
+                               secret: ENV.fetch('SESSION_SECRET'),
+                               same_site: :lax # don't send the host's session along with cross-site POSTs
+
+    # Sinatra's built-in origin check runs before the session is loaded and only drops that (still empty)
+    # session, so cross-site POSTs used to reach the routes with the host's session. Reject them instead.
+    use Rack::Protection::HttpOrigin, permitted_origins: [HOST_URL]
 
     # Server Config
     set :bind, '0.0.0.0'
@@ -111,10 +116,12 @@ module SonosPartyMode
 
       if session[:user_id].nil? || SonosPartyMode::Db.sonos_tokens.where(user_id: session[:user_id]).count.zero?
         redirect_uri = "#{HOST_URL}/sonos/authorized.html"
+        # Kept across reloads of this page, so a login started in another tab still completes
+        session[:sonos_state_key] ||= SecureRandom.hex
         @sonos_login_url = 'https://api.sonos.com/login/v3/oauth?' \
                            "client_id=#{ENV.fetch('SONOS_KEY')}&" \
                            'response_type=code&' \
-                           'state=TESTSTATE&' \
+                           "state=#{session[:sonos_state_key]}&" \
                            'scope=playback-control-all&' \
                            "redirect_uri=#{ERB::Util.url_encode(redirect_uri)}"
         return erb :login
@@ -144,11 +151,11 @@ module SonosPartyMode
         '/assets/add-to-sonos-2.png',
         '/assets/add-to-sonos-3.png',
         '/assets/favicon.ico',
-        '/assets/favicon-16x16.ico',
-        '/assets/favicon-32x32.ico',
+        '/assets/favicon-16x16.png',
+        '/assets/favicon-32x32.png',
         '/assets/apple-touch-icon.png',
-        '/assets/android-chrome-512x512',
-        '/assets/android-chrome-192x192',
+        '/assets/android-chrome-512x512.png',
+        '/assets/android-chrome-192x192.png',
         '/assets/logo.png',
         '/assets/spotify-logo.png'
       ].include?(request.path) || request.path.start_with?('/assets/memes/')
@@ -221,10 +228,11 @@ module SonosPartyMode
       playback_metadata = sonos_instance.playback_metadata
       if Hash(Hash(playback_metadata.fetch('currentItem', nil)).fetch('track', nil)).fetch('id', nil).nil?
         sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
+        selected_group = Array(sonos_groups).find { |a| a['id'] == sonos_instance.group_to_use }
         # Nothing playing
         return {
           nothing_playing: true,
-          group_to_use: sonos_groups.find { |a| a['id'] == sonos_instance.group_to_use }['name']
+          group_to_use: selected_group ? selected_group['name'] : 'Unknown group'
         }
       end
       current_spotify_object_id = playback_metadata['currentItem']['track']['id']['objectId'] rescue nil
@@ -269,7 +277,7 @@ module SonosPartyMode
       party_on = sonos_instance.party_session_active
 
       sonos_groups = sonos_instance.groups_cached || sonos_instance.groups
-      groups = sonos_groups.collect do |group|
+      groups = Array(sonos_groups).collect do |group|
         {
           name: group.fetch('name'),
           id: group.fetch('id'),
@@ -321,6 +329,8 @@ module SonosPartyMode
     end
 
     get "/qr_code.png" do
+      halt 401 unless all_sessions?
+
       content_type :png
       cache_control :no_cache
       headers("Pragma" => "no-cache", "Expires" => "0")
@@ -347,6 +357,8 @@ module SonosPartyMode
         size: 300
       )
       return png.to_blob
+    rescue SonosPartyMode::Spotify::ReauthorizationRequired
+      halt 401
     end
 
     post '/party/host/update' do
@@ -391,15 +403,19 @@ module SonosPartyMode
       sonos.skip_song! if params[:skip_song]
     end
 
-    get '/logout' do
+    post '/logout' do
       unless all_sessions?
         redirect '/'
         return
       end
 
-      Db.sonos_tokens.where(user_id: session[:user_id]).delete
-      Db.spotify_tokens.where(user_id: session[:user_id]).delete
-      Db.users.where(id: session[:user_id]).delete
+      user_id = session[:user_id]
+      Db.sonos_tokens.where(user_id: user_id).delete
+      Db.spotify_tokens.where(user_id: user_id).delete
+      Db.users.where(id: user_id).delete
+      # Invite links and background work are served from memory, so stop them now instead of at the next restart
+      sonos_instances.delete(user_id)
+      spotify_instances.delete(user_id)
       session.delete(:user_id)
 
       redirect '/?logged_out=true'
@@ -414,7 +430,8 @@ module SonosPartyMode
 
       # No auth here, we just verify the 2 IDs
       spotify_instance = spotify_instances[params[:user_id].to_i]
-      return spotify_guest_unavailable! unless spotify_instance
+      sonos_instance = sonos_instances[params[:user_id].to_i]
+      return spotify_guest_unavailable! unless spotify_instance && sonos_instance
 
       spotify_playlist = spotify_instance.party_playlist
       if spotify_playlist.id != params[:playlist_id]
@@ -423,7 +440,6 @@ module SonosPartyMode
       end
 
       # Fetch the current queue, so we can render it
-      sonos_instance = sonos_instances[params[:user_id].to_i]
       @queued_songs = queued_songs_json(spotify_instance, sonos_instance)
 
       erb :queue_song
@@ -496,6 +512,14 @@ module SonosPartyMode
     # Sonos Specific Code
     # -----------------------
     get '/sonos/authorized.html' do
+      # Only accept logins that were started from this browser's login page
+      expected_state = session.delete(:sonos_state_key).to_s
+      if expected_state.empty? || !Rack::Utils.secure_compare(expected_state, params[:state].to_s)
+        puts 'Mismatching Sonos OAuth state'
+        redirect '/'
+        return
+      end
+
       # So, this user is serious, they onboarded Sonos, so we now create an entry for them
       # First, create a new user
       user_id = SonosPartyMode::Db.users.insert
@@ -721,7 +745,7 @@ module SonosPartyMode
     get '/spotify/search/:user_id/:playlist_id' do
       content_type :json
 
-      song_name = params.fetch(:song_name)
+      song_name = params[:song_name]
       user_id = params[:user_id].to_i
       spotify_instance = spotify_instances[user_id]
       return spotify_guest_unavailable!(json: true) unless spotify_instance
@@ -734,21 +758,14 @@ module SonosPartyMode
 
       puts "Searching for Spotify song using name #{song_name}"
       songs = spotify_instance.search_for_song(song_name)
+      # Audio features aren't shown anywhere, and fetching them cost one extra Spotify request per result
       return songs.collect do |song|
-        audio_features = song.audio_features
+        images = Array(song.album.images)
         {
           id: song.id,
           name: song.name,
           artists: song.artists.collect(&:name),
-          thumbnail: song.album.images[1]['url'],
-          danceability: audio_features.danceability,
-          energy: audio_features.energy,
-          tempo: audio_features.tempo,
-          loudness: audio_features.loudness,
-          liveness: audio_features.liveness,
-          acousticness: audio_features.acousticness,
-          speechiness: audio_features.speechiness,
-          valence: audio_features.valence,
+          thumbnail: (images[1] || images.first || {})['url']
         }
       end.to_json
     rescue SonosPartyMode::Spotify::ReauthorizationRequired
